@@ -7,7 +7,7 @@ import WeekActivityChart from "@/components/shared/WeekActivityChart";
 import OrgDetail from "@/components/shared/OrgDetail";
 import {
   API_USERS, MOCK_USERS, MOCK_ORGS, apiPost, apiGet,
-  AuthUser, Player, Organization, Role, Status, Tab,
+  AuthUser, Player, Organization, Notification, Role, Status, Tab,
   STATUS_COLORS, STATUS_LABELS, formatTime,
 } from "@/lib/types";
 
@@ -189,8 +189,15 @@ export default function Index() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [orgs, setOrgs] = useState<Organization[]>(MOCK_ORGS);
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [isMock, setIsMock] = useState(false);
+
+  const addNotification = (note: Omit<Notification, "id" | "read">) => {
+    setNotifications(prev => [{ ...note, id: Date.now(), read: false }, ...prev]);
+    setShowNotifications(true);
+  };
 
   const fetchPlayers = useCallback(async () => {
     setLoadingPlayers(true);
@@ -338,6 +345,42 @@ export default function Index() {
               <div className="font-hud text-xs text-purple-200">{authUser.username}</div>
               <RoleBadge role={viewerRole} />
             </div>
+
+            {/* Колокол уведомлений */}
+            {(viewerRole === "leader" || viewerRole === "admin" || viewerRole === "curator") && (
+              <div className="relative">
+                <button onClick={() => setShowNotifications(!showNotifications)}
+                  className="w-9 h-9 rounded-xl bg-white/4 border border-purple-900/60 flex items-center justify-center hover:border-violet-600/40 hover:bg-violet-900/20 transition-all relative">
+                  <Icon name="Bell" size={14} className="text-purple-500" />
+                  {notifications.filter(n => !n.read).length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center font-hud text-[9px] text-white">
+                      {notifications.filter(n => !n.read).length}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && notifications.length > 0 && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden z-50">
+                    <div className="px-4 py-2.5 border-b border-purple-900/40 flex items-center justify-between">
+                      <span className="font-hud text-xs tracking-widest text-purple-400">УВЕДОМЛЕНИЯ</span>
+                      <button onClick={() => { setNotifications(p => p.map(n => ({ ...n, read: true }))); setShowNotifications(false); }}
+                        className="text-[10px] font-mono-hud text-purple-700 hover:text-purple-400">прочитать все</button>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {notifications.map(n => (
+                        <div key={n.id} className={`px-4 py-3 border-b border-purple-900/20 last:border-0 ${!n.read ? "bg-purple-900/15" : ""}`}>
+                          <div className="text-xs font-mono-hud text-purple-300 leading-relaxed">{n.text}</div>
+                          <div className="text-[10px] text-purple-800 mt-1">
+                            {new Date(n.timestamp).toLocaleString("ru", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button onClick={handleLogout}
               className="w-9 h-9 rounded-xl bg-white/4 border border-purple-900/60 flex items-center justify-center hover:border-red-500/40 hover:bg-red-500/10 transition-all group">
               <Icon name="LogOut" size={14} className="text-purple-700 group-hover:text-red-400 transition-colors" />
@@ -478,7 +521,11 @@ export default function Index() {
               </button>
             </div>
             <div className="hud-panel overflow-hidden py-2">
-              {players.map((player, i) => (
+              {(viewerRole === "leader"
+                // Лидер видит только участников своей организации
+                ? players.filter(p => myOrg?.memberIds.includes(p.id))
+                : players
+              ).map((player, i) => (
                 <PlayerRow key={player.id} player={player} index={i} canEdit={true}
                   viewerRole={viewerRole}
                   onAddWarning={handleAddWarning} onRemoveWarning={handleRemoveWarning}
@@ -546,10 +593,12 @@ export default function Index() {
                   org={myOrg}
                   allPlayers={players}
                   viewerRole={viewerRole}
+                  viewerName={authUser.username}
                   viewerId={authUser.id}
                   onBack={() => {}}
                   onUpdate={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o))}
                   onPlayerUpdate={(id, fields) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p))}
+                  onNotify={addNotification}
                 />
               ) : (
                 <div className="hud-panel p-10 text-center space-y-2">
@@ -567,10 +616,12 @@ export default function Index() {
                   org={orgs.find(o => o.id === selectedOrgId)!}
                   allPlayers={players}
                   viewerRole={viewerRole}
+                  viewerName={authUser.username}
                   viewerId={authUser.id}
                   onBack={() => setSelectedOrgId(null)}
                   onUpdate={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o))}
                   onPlayerUpdate={(id, fields) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p))}
+                  onNotify={addNotification}
                 />
               ) : (
                 <div className="space-y-4">

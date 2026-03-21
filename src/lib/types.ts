@@ -5,6 +5,18 @@ export type Role = "user" | "leader" | "admin" | "curator";
 export type Status = "online" | "afk" | "offline";
 export type Tab = "stats" | "leaderboard" | "users" | "moderation" | "admin_panel" | "organizations";
 
+// Тип взыскания
+export type PenaltyType = "verbal" | "reprimand" | "excluded";
+
+export interface Penalty {
+  id: number;
+  type: PenaltyType;
+  reason: string;       // причина (например "Вышел с АФК без разрешения")
+  issuedBy: string;     // кто выдал
+  issuedAt: string;     // дата ISO
+  isActive: boolean;    // снято или нет
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -23,10 +35,35 @@ export const MOCK_ORGS: Organization[] = [
 
 // Проверяет, может ли viewer редактировать target
 export function canEditTarget(viewerRole: Role, targetRole: Role): boolean {
-  if (viewerRole === "curator") return true; // куратор редактирует всех
-  if (viewerRole === "admin") return targetRole === "leader" || targetRole === "user"; // адмін — лидеров и игроков
-  if (viewerRole === "leader") return targetRole === "user"; // лидер — только игроков
+  if (viewerRole === "curator") return true;
+  if (viewerRole === "admin") return targetRole === "leader" || targetRole === "user";
+  if (viewerRole === "leader") return targetRole === "user";
   return false;
+}
+
+// Причина предупреждения при смене статуса
+export function statusChangePenaltyReason(fromStatus: Status, toStatus: Status): string {
+  if (fromStatus === "afk"    && toStatus === "offline") return "Покинул АФК и вышел из игры без разрешения";
+  if (fromStatus === "online" && toStatus === "offline") return "Вышел из игры без разрешения (был онлайн)";
+  if (fromStatus === "online" && toStatus === "afk")     return "Ушёл в АФК без разрешения";
+  return `Изменён статус: ${STATUS_LABELS[fromStatus]} → ${STATUS_LABELS[toStatus]}`;
+}
+
+// Подсчёт активных взысканий
+export function countActivePenalties(penalties: Penalty[]): { verbal: number; reprimand: number } {
+  const active = penalties.filter(p => p.isActive);
+  return {
+    verbal:    active.filter(p => p.type === "verbal").length,
+    reprimand: active.filter(p => p.type === "reprimand").length,
+  };
+}
+
+// Определяет тип следующего взыскания по кол-ву текущих
+export function nextPenaltyType(penalties: Penalty[]): PenaltyType {
+  const { verbal, reprimand } = countActivePenalties(penalties);
+  if (reprimand >= 3) return "excluded";
+  if (verbal >= 2)    return "reprimand";
+  return "verbal";
 }
 
 export interface Player {
@@ -43,13 +80,29 @@ export interface Player {
   onlineToday: number;
   onlineWeek: number;
   warnings: number;
-  weekActivity?: number[]; // минуты за каждый день недели [Пн..Вс]
+  penalties: Penalty[];         // история взысканий
+  weekActivity?: number[];      // минуты за каждый день недели [Пн..Вс]
 }
 
 export interface AuthUser extends Player { token: string; }
 
+// Уведомление лидеру
+export interface Notification {
+  id: number;
+  text: string;
+  type: "warning" | "excluded" | "info";
+  timestamp: string;
+  read: boolean;
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   user: "ИГРОК", leader: "ЛИДЕР", admin: "АДМИНИСТРАТОР", curator: "КУРАТОР",
+};
+
+export const PENALTY_LABELS: Record<PenaltyType, string> = {
+  verbal: "УСТНОЕ ПРЕДУПРЕЖДЕНИЕ",
+  reprimand: "ВЫГОВОР",
+  excluded: "ИСКЛЮЧЕНИЕ",
 };
 
 export const STATUS_COLORS: Record<Status, string> = {
@@ -63,10 +116,10 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const MOCK_USERS: (Player & { token: string; password: string })[] = [
-  { id: 1, username: "BlackStar_IX", password: "curator123", token: "mock-token-1", rank: "IV", title: "Командующий", role: "curator", status: "online", level: 87, xp: 8700, xpMax: 10000, reputation: 9850, onlineToday: 312, onlineWeek: 2140, warnings: 0, weekActivity: [285, 310, 190, 340, 270, 312, 433] },
-  { id: 2, username: "Nexus_Prime",  password: "admin123",   token: "mock-token-2", rank: "III", title: "Генерал",     role: "admin",   status: "online", level: 64, xp: 6400, xpMax: 7000,  reputation: 7200, onlineToday: 185, onlineWeek: 1340, warnings: 0, weekActivity: [145, 200, 185, 220, 185, 160, 245] },
-  { id: 3, username: "Shadow_Wolf",  password: "leader123",  token: "mock-token-3", rank: "II",  title: "Майор",       role: "leader",  status: "online", level: 42, xp: 4200, xpMax: 5000,  reputation: 4800, onlineToday: 220, onlineWeek: 1560, warnings: 0, weekActivity: [180, 240, 110, 260, 220, 330, 220] },
-  { id: 4, username: "Ghost_Rider",  password: "user123",    token: "mock-token-4", rank: "I",   title: "Сержант",     role: "user",    status: "online", level: 21, xp: 2100, xpMax: 3000,  reputation: 2300, onlineToday: 130, onlineWeek: 890,  warnings: 0, weekActivity: [90,  130,  45, 180,  95, 130, 220] },
+  { id: 1, username: "BlackStar_IX", password: "curator123", token: "mock-token-1", rank: "IV", title: "Командующий", role: "curator", status: "online", level: 87, xp: 8700, xpMax: 10000, reputation: 9850, onlineToday: 312, onlineWeek: 2140, warnings: 0, penalties: [], weekActivity: [285, 310, 190, 340, 270, 312, 433] },
+  { id: 2, username: "Nexus_Prime",  password: "admin123",   token: "mock-token-2", rank: "III", title: "Генерал",     role: "admin",   status: "online", level: 64, xp: 6400, xpMax: 7000,  reputation: 7200, onlineToday: 185, onlineWeek: 1340, warnings: 0, penalties: [], weekActivity: [145, 200, 185, 220, 185, 160, 245] },
+  { id: 3, username: "Shadow_Wolf",  password: "leader123",  token: "mock-token-3", rank: "II",  title: "Майор",       role: "leader",  status: "online", level: 42, xp: 4200, xpMax: 5000,  reputation: 4800, onlineToday: 220, onlineWeek: 1560, warnings: 0, penalties: [], weekActivity: [180, 240, 110, 260, 220, 330, 220] },
+  { id: 4, username: "Ghost_Rider",  password: "user123",    token: "mock-token-4", rank: "I",   title: "Сержант",     role: "user",    status: "online", level: 21, xp: 2100, xpMax: 3000,  reputation: 2300, onlineToday: 130, onlineWeek: 890,  warnings: 0, penalties: [], weekActivity: [90,  130,  45, 180,  95, 130, 220] },
 ];
 
 export function formatTime(minutes: number): string {
