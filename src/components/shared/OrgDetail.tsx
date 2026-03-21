@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import OrgRanksPanel from "@/components/shared/OrgRanksPanel";
 import {
-  Organization, Player, Role, Status, Penalty, Notification,
+  Organization, OrgRank, Player, Role, Status, Penalty, Notification,
   STATUS_COLORS, STATUS_LABELS, PENALTY_LABELS,
   formatTime, nextPenaltyType, countActivePenalties, statusChangePenaltyReason, issuePenaltyToList,
 } from "@/lib/types";
@@ -22,14 +23,18 @@ function PenaltyBadge({ type }: { type: Penalty["type"] }) {
 }
 
 // ─── MEMBER ROW ───────────────────────────────────────────────
-function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, onPenaltyUpdate, onStatusChange }: {
+function MemberRow({ player, isLeader, canManage, issuerName, orgRanks, memberRankId,
+  onRemoveFromOrg, onPenaltyUpdate, onStatusChange, onRankAssign }: {
   player: Player;
   isLeader: boolean;
   canManage: boolean;
   issuerName: string;
+  orgRanks: OrgRank[];
+  memberRankId?: number;
   onRemoveFromOrg?: (id: number) => void;
   onPenaltyUpdate?: (id: number, penalties: Penalty[], excluded: boolean) => void;
   onStatusChange?: (id: number, fromStatus: Status, toStatus: Status) => void;
+  onRankAssign?: (playerId: number, rankId: number | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -43,18 +48,14 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
   };
 
   const removePenalty = (penaltyId: number) => {
-    onPenaltyUpdate?.(
-      player.id,
-      penalties.map(p => p.id === penaltyId ? { ...p, isActive: false } : p),
-      false,
-    );
+    onPenaltyUpdate?.(player.id, penalties.map(p => p.id === penaltyId ? { ...p, isActive: false } : p), false);
   };
 
   const statusColor = player.status === "online" ? "text-emerald-400"
     : player.status === "afk" ? "text-amber-400" : "text-zinc-500";
 
-  const penaltyLabel = reprimand > 0 ? `выговор ×${reprimand}`
-    : verbal > 0 ? `устное ×${verbal}` : null;
+  const penaltyLabel = reprimand > 0 ? `выговор ×${reprimand}` : verbal > 0 ? `устное ×${verbal}` : null;
+  const assignedRank = orgRanks.find(r => r.id === memberRankId);
 
   return (
     <div>
@@ -72,7 +73,11 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
             {isLeader && (
               <span className="text-[9px] font-hud px-2 py-0.5 rounded-full bg-amber-900/30 border border-amber-700/40 text-amber-400">ЛИДЕР</span>
             )}
-            <span className="rank-badge text-[9px] font-hud px-2 py-0.5 text-violet-300/80">RNK {player.rank}</span>
+            {assignedRank && (
+              <span className={`text-[9px] font-hud px-2 py-0.5 rounded-full border border-current/30 bg-current/10 ${assignedRank.color}`}>
+                {assignedRank.name}
+              </span>
+            )}
             {penaltyLabel && (
               <span className="text-[9px] font-mono-hud text-red-400 bg-red-900/20 border border-red-800/30 px-1.5 py-0.5 rounded">⚠ {penaltyLabel}</span>
             )}
@@ -93,6 +98,7 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
 
       {expanded && (
         <div className="mx-3 mb-2 p-4 bg-purple-950/40 border border-purple-800/20 rounded-xl space-y-4">
+          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "ОНЛАЙН СЕГОДНЯ", val: formatTime(player.onlineToday), cls: "text-purple-300" },
@@ -144,6 +150,33 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
           {canManage && (
             <div className="space-y-3 pt-2 border-t border-purple-900/40">
 
+              {/* Назначить ранг организации */}
+              {!isLeader && orgRanks.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-hud tracking-widest text-purple-700 mb-2">РАНГ В ОРГАНИЗАЦИИ</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={e => { e.stopPropagation(); onRankAssign?.(player.id, null); }}
+                      className={`text-[10px] font-hud px-2.5 py-1 rounded-lg border transition-all ${
+                        !memberRankId ? "bg-purple-700/30 border-purple-600/50 text-purple-200" : "border-purple-900/40 text-purple-700 hover:border-purple-700/50 hover:text-purple-400"
+                      }`}>
+                      — Без ранга
+                    </button>
+                    {orgRanks.map(rank => (
+                      <button key={rank.id}
+                        onClick={e => { e.stopPropagation(); onRankAssign?.(player.id, rank.id); }}
+                        className={`text-[10px] font-hud px-2.5 py-1 rounded-lg border transition-all ${
+                          memberRankId === rank.id
+                            ? `bg-current/10 border-current/40 ${rank.color}`
+                            : `border-purple-900/40 text-purple-700 hover:${rank.color} hover:border-current/30`
+                        }`}>
+                        {rank.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Смена статуса */}
               <div>
                 <div className="text-[10px] font-hud tracking-widest text-purple-700 mb-2">
@@ -158,7 +191,7 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
                       className={`btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         player.status === s
                           ? s === "online" ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
-                            : s === "afk"  ? "bg-amber-500/15  border-amber-500/40  text-amber-400"
+                            : s === "afk"  ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
                             : "bg-zinc-700/20 border-zinc-600/40 text-zinc-400"
                           : "bg-transparent border-purple-900/40 text-purple-700 hover:border-purple-700/50 hover:text-purple-400"
                       }`}>
@@ -168,7 +201,7 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
                 </div>
               </div>
 
-              {/* Ручное взыскание */}
+              {/* Взыскание вручную */}
               {!isLeader && (
                 <div>
                   <div className="text-[10px] font-hud tracking-widest text-purple-700 mb-2">
@@ -192,6 +225,7 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
                 </div>
               )}
 
+              {/* Исключить */}
               {!isLeader && (
                 <button onClick={e => { e.stopPropagation(); onRemoveFromOrg?.(player.id); }}
                   className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-900/15 border border-red-800/30 text-red-600 rounded-lg hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/30 transition-all">
@@ -225,14 +259,28 @@ export default function OrgDetail({
 }: OrgDetailProps) {
   const [addSearch, setAddSearch] = useState("");
 
+  // ── Защита: лидер работает только со своей организацией ──────
   const isCuratorOrAdmin = viewerRole === "curator" || viewerRole === "admin";
-  const isLeaderOfOrg = viewerRole === "leader" && org.leaderId === viewerId;
-  const canManage = isCuratorOrAdmin || isLeaderOfOrg;
+  const isLeaderOfOrg    = viewerRole === "leader" && org.leaderId === viewerId;
+  const canManage        = isCuratorOrAdmin || isLeaderOfOrg;
 
-  const members = allPlayers.filter(p => org.memberIds.includes(p.id));
-  const onlineCount = members.filter(p => p.status === "online").length;
-  const afkCount = members.filter(p => p.status === "afk").length;
+  // Если лидер не принадлежит этой орге — блокируем всё
+  if (viewerRole === "leader" && !isLeaderOfOrg) {
+    return (
+      <div className="hud-panel p-10 text-center space-y-3">
+        <Icon name="ShieldOff" size={32} className="text-red-800 mx-auto" />
+        <div className="font-hud text-sm text-red-700">Доступ запрещён</div>
+        <div className="font-mono-hud text-xs text-purple-900">Вы не являетесь лидером этой организации</div>
+      </div>
+    );
+  }
+
+  const members          = allPlayers.filter(p => org.memberIds.includes(p.id));
+  const onlineCount      = members.filter(p => p.status === "online").length;
+  const afkCount         = members.filter(p => p.status === "afk").length;
   const totalOnlineToday = members.reduce((s, p) => s + p.onlineToday, 0);
+  const orgRanks         = org.orgRanks ?? [];
+  const memberRanks      = org.memberRanks ?? {};
 
   const notMembers = allPlayers.filter(p =>
     !org.memberIds.includes(p.id) &&
@@ -240,13 +288,35 @@ export default function OrgDetail({
     (addSearch === "" || p.username.toLowerCase().includes(addSearch.toLowerCase()))
   );
 
-  const handleRemoveFromOrg = (playerId: number) =>
-    onUpdate({ ...org, memberIds: org.memberIds.filter(id => id !== playerId) });
+  const handleRemoveFromOrg = (playerId: number) => {
+    const newMemberRanks = { ...memberRanks };
+    delete newMemberRanks[playerId];
+    onUpdate({ ...org, memberIds: org.memberIds.filter(id => id !== playerId), memberRanks: newMemberRanks });
+  };
 
   const handleAdd = (playerId: number) => {
     if (org.memberIds.includes(playerId)) return;
     onUpdate({ ...org, memberIds: [...org.memberIds, playerId] });
     setAddSearch("");
+  };
+
+  const handleRankAssign = (playerId: number, rankId: number | null) => {
+    const newMemberRanks = { ...memberRanks };
+    if (rankId === null) delete newMemberRanks[playerId];
+    else newMemberRanks[playerId] = rankId;
+    onUpdate({ ...org, memberRanks: newMemberRanks });
+  };
+
+  // При удалении ранга — снять его у всех участников
+  const handleRanksChange = (newRanks: OrgRank[]) => {
+    const deletedIds = orgRanks.filter(r => !newRanks.find(nr => nr.id === r.id)).map(r => r.id);
+    const newMemberRanks = { ...memberRanks };
+    deletedIds.forEach(id => {
+      Object.keys(newMemberRanks).forEach(pid => {
+        if (newMemberRanks[Number(pid)] === id) delete newMemberRanks[Number(pid)];
+      });
+    });
+    onUpdate({ ...org, orgRanks: newRanks, memberRanks: newMemberRanks });
   };
 
   const handleStatusChange = (playerId: number, fromStatus: Status, toStatus: Status) => {
@@ -271,7 +341,16 @@ export default function OrgDetail({
     onNotify?.({ text: notifyText, type: excluded ? "excluded" : "warning", timestamp: new Date().toISOString() });
 
     if (excluded) {
-      onUpdate({ ...org, memberIds: org.memberIds.filter(id => id !== playerId) });
+      handleRemoveFromOrg(playerId);
+      // Уведомление с историей взысканий
+      const history = newPenalties.filter(p => p.isActive)
+        .map(p => `• ${PENALTY_LABELS[p.type]}: ${p.reason}`)
+        .join("\n");
+      onNotify?.({
+        text: `📋 История взысканий ${player.username}:\n${history}`,
+        type: "info",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -279,13 +358,18 @@ export default function OrgDetail({
     const player = allPlayers.find(p => p.id === playerId);
     onPlayerUpdate?.(playerId, { penalties, warnings: penalties.filter(p => p.isActive).length });
     if (excluded && player) {
-      onUpdate({ ...org, memberIds: org.memberIds.filter(id => id !== playerId) });
-      onNotify?.({ text: `🚫 ${player.username} автоматически исключён после 3 выговоров`, type: "excluded", timestamp: new Date().toISOString() });
+      handleRemoveFromOrg(playerId);
+      const history = penalties.filter(p => p.isActive)
+        .map(p => `• ${PENALTY_LABELS[p.type]}: ${p.reason}`)
+        .join("\n");
+      onNotify?.({ text: `🚫 ${player.username} исключён после 3 выговоров`, type: "excluded", timestamp: new Date().toISOString() });
+      onNotify?.({ text: `📋 История взысканий ${player.username}:\n${history}`, type: "info", timestamp: new Date().toISOString() });
     }
   };
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center gap-3">
         {viewerRole === "curator" && (
           <button onClick={onBack}
@@ -300,6 +384,7 @@ export default function OrgDetail({
         <RoleBadge role={viewerRole} />
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "УЧАСТНИКОВ",   val: String(members.length), icon: "Users",    cls: "text-purple-300" },
@@ -324,6 +409,14 @@ export default function OrgDetail({
         </div>
       )}
 
+      {/* Ранги организации */}
+      <OrgRanksPanel
+        ranks={orgRanks}
+        canEdit={canManage}
+        onChange={handleRanksChange}
+      />
+
+      {/* Members */}
       <div className="hud-panel overflow-hidden">
         <div className="px-5 py-3.5 border-b border-purple-900/40 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -360,15 +453,19 @@ export default function OrgDetail({
                   isLeader={player.id === org.leaderId}
                   canManage={canManage}
                   issuerName={viewerName}
+                  orgRanks={orgRanks}
+                  memberRankId={memberRanks[player.id]}
                   onRemoveFromOrg={handleRemoveFromOrg}
                   onPenaltyUpdate={handlePenaltyUpdate}
                   onStatusChange={handleStatusChange}
+                  onRankAssign={handleRankAssign}
                 />
               ))}
           </div>
         )}
       </div>
 
+      {/* Добавить участника */}
       {canManage && (
         <div className="hud-panel p-5">
           <div className="font-hud text-xs tracking-widest text-purple-600 mb-3 flex items-center gap-2">

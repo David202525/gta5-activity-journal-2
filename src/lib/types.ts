@@ -17,6 +17,13 @@ export interface Penalty {
   isActive: boolean;    // снято или нет
 }
 
+// Ранг внутри организации (кастомный, создаётся лидером)
+export interface OrgRank {
+  id: number;
+  name: string;   // название, например "Снайпер", "Разведчик"
+  color: string;  // tailwind-цвет текста, например "text-sky-400"
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -24,13 +31,42 @@ export interface Organization {
   description: string;
   leaderId: number | null;
   leaderName: string;
-  memberIds: number[]; // id участников
+  memberIds: number[];
+  orgRanks: OrgRank[];             // кастомные ранги организации
+  memberRanks: Record<number, number>; // playerId → orgRankId
   createdAt: string;
 }
 
+export const ORG_RANK_COLORS = [
+  { value: "text-sky-400",    label: "Синий"    },
+  { value: "text-emerald-400",label: "Зелёный"  },
+  { value: "text-amber-400",  label: "Золотой"  },
+  { value: "text-red-400",    label: "Красный"  },
+  { value: "text-violet-400", label: "Фиолетовый" },
+  { value: "text-pink-400",   label: "Розовый"  },
+  { value: "text-zinc-400",   label: "Серый"    },
+];
+
 export const MOCK_ORGS: Organization[] = [
-  { id: 1, name: "Shadow Legion",  tag: "[SL]", description: "Элитное боевое подразделение",    leaderId: 3, leaderName: "Shadow_Wolf", memberIds: [3, 4], createdAt: "2024-01-15" },
-  { id: 2, name: "Nexus Corp",     tag: "[NC]", description: "Торговая корпорация Лос-Сантоса", leaderId: null, leaderName: "—",        memberIds: [],    createdAt: "2024-02-20" },
+  {
+    id: 1, name: "Shadow Legion", tag: "[SL]",
+    description: "Элитное боевое подразделение",
+    leaderId: 3, leaderName: "Shadow_Wolf",
+    memberIds: [3, 4], createdAt: "2024-01-15",
+    orgRanks: [
+      { id: 1, name: "Снайпер",    color: "text-sky-400"     },
+      { id: 2, name: "Штурмовик",  color: "text-red-400"     },
+      { id: 3, name: "Разведчик",  color: "text-emerald-400" },
+    ],
+    memberRanks: { 4: 1 },
+  },
+  {
+    id: 2, name: "Nexus Corp", tag: "[NC]",
+    description: "Торговая корпорация Лос-Сантоса",
+    leaderId: null, leaderName: "—",
+    memberIds: [], createdAt: "2024-02-20",
+    orgRanks: [], memberRanks: {},
+  },
 ];
 
 // Проверяет, может ли viewer редактировать target

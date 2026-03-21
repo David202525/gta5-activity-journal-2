@@ -107,6 +107,7 @@ export function CreateOrgForm({ players, onCreated }: { players: Player[]; onCre
       id: Date.now(), name: form.name.trim(), tag: form.tag.trim(),
       description: form.description.trim(), leaderId: leader?.id ?? null,
       leaderName: leader?.username ?? "—", memberIds: [],
+      orgRanks: [], memberRanks: {},
       createdAt: new Date().toISOString().slice(0, 10),
     };
     onCreated(org);
