@@ -164,6 +164,12 @@ export default function Index() {
     else fetchPlayers();
   };
 
+  const handleEditPlayer = async (userId: number, fields: { username?: string; rank?: string }) => {
+    setPlayers(p => p.map(u => u.id === userId ? { ...u, ...fields } : u));
+    try { await apiPost(API_USERS, { action: "edit_user", user_id: userId, ...fields }); }
+    catch { /* мок: уже обновили локально */ }
+  };
+
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
 
   const viewerRole = authUser.role as Role;
@@ -373,7 +379,8 @@ export default function Index() {
             <div className="hud-panel overflow-hidden py-2">
               {players.map((player, i) => (
                 <PlayerRow key={player.id} player={player} index={i} canEdit={true}
-                  onAddWarning={handleAddWarning} onRemoveWarning={handleRemoveWarning} />
+                  onAddWarning={handleAddWarning} onRemoveWarning={handleRemoveWarning}
+                  onEditPlayer={handleEditPlayer} />
               ))}
             </div>
           </div>
