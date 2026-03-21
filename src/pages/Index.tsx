@@ -4,6 +4,30 @@ import Icon from "@/components/ui/icon";
 const API_AUTH = "https://functions.poehali.dev/0faae4ff-54b8-40f4-988a-aa6bbebd01f0";
 const API_USERS = "https://functions.poehali.dev/93e60fdd-bf88-468d-88c8-f312a5f61460";
 
+// ─── MOCK DATA (используется если API недоступен) ─────────────
+const MOCK_USERS: (Player & { token: string; password: string })[] = [
+  { id: 1, username: "BlackStar_IX", password: "curator123", token: "mock-token-1", rank: "IV", title: "Командующий", role: "curator", status: "online", level: 87, xp: 8700, xpMax: 10000, reputation: 9850, onlineToday: 312, onlineWeek: 2140, warnings: 0 },
+  { id: 2, username: "Nexus_Prime",  password: "admin123",   token: "mock-token-2", rank: "III", title: "Генерал",     role: "admin",   status: "online", level: 64, xp: 6400, xpMax: 7000,  reputation: 7200, onlineToday: 185, onlineWeek: 1340, warnings: 0 },
+  { id: 3, username: "Shadow_Wolf",  password: "leader123",  token: "mock-token-3", rank: "II",  title: "Майор",       role: "leader",  status: "online", level: 42, xp: 4200, xpMax: 5000,  reputation: 4800, onlineToday: 220, onlineWeek: 1560, warnings: 0 },
+  { id: 4, username: "Ghost_Rider",  password: "user123",    token: "mock-token-4", rank: "I",   title: "Сержант",     role: "user",    status: "online", level: 21, xp: 2100, xpMax: 3000,  reputation: 2300, onlineToday: 130, onlineWeek: 890,  warnings: 0 },
+];
+
+async function apiPost(url: string, body: object) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  return { ok: res.ok, data: typeof data === "string" ? JSON.parse(data) : data };
+}
+
+async function apiGet(url: string) {
+  const res = await fetch(url);
+  const data = await res.json();
+  return { ok: res.ok, data: typeof data === "string" ? JSON.parse(data) : data };
+}
+
 type Role = "user" | "leader" | "admin" | "curator";
 type Status = "online" | "afk" | "offline";
 type Tab = "stats" | "leaderboard" | "users" | "moderation" | "admin_panel";
@@ -79,22 +103,28 @@ function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showMockHint, setShowMockHint] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) { setError("Введите ник и пароль"); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch(API_AUTH, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", username: username.trim(), password }),
-      });
-      const data = await res.json();
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      if (!res.ok || parsed.error) setError(parsed.error || "Ошибка входа");
-      else onLogin(parsed.user);
-    } catch { setError("Нет связи с сервером"); }
+      const { ok, data } = await apiPost(API_AUTH, { action: "login", username: username.trim(), password });
+      if (!ok || data.error) setError(data.error || "Ошибка входа");
+      else onLogin(data.user);
+    } catch {
+      // Fallback: мок-режим если сервер недоступен
+      setShowMockHint(true);
+      const found = MOCK_USERS.find(u => u.username === username.trim() && u.password === password);
+      if (found) {
+        const { password: _p, ...user } = found;
+        void _p;
+        onLogin({ ...user, status: "online" });
+      } else {
+        setError("Неверный ник или пароль");
+      }
+    }
     finally { setLoading(false); }
   };
 
@@ -165,7 +195,25 @@ function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-white/5 text-center">
+          {showMockHint && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Icon name="WifiOff" size={11} className="text-amber-400" />
+                <span className="text-[10px] font-hud tracking-wider text-amber-400">СЕРВЕР НЕДОСТУПЕН — МОК-РЕЖИМ</span>
+              </div>
+              <div className="space-y-1">
+                {MOCK_USERS.map(u => (
+                  <button key={u.id} onClick={() => { setUsername(u.username); setPassword(u.password); }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-all text-left">
+                    <span className="font-mono-hud text-[10px] text-purple-300">{u.username}</span>
+                    <RoleBadge role={u.role} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-white/5 text-center">
             <p className="text-[10px] text-purple-900/80 font-mono-hud">
               Доступ предоставляется куратором или администратором
             </p>
@@ -300,19 +348,17 @@ function AddUserForm({ viewerRole, currentUsername, onAdded }: {
     if (!form.username || !form.password) { setMsg({ text: "Заполните ник и пароль", ok: false }); return; }
     setLoading(true); setMsg(null);
     try {
-      const res = await fetch(API_USERS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_user", ...form, created_by: currentUsername }),
-      });
-      const data = await res.json();
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      if (parsed.ok) {
+      const { data } = await apiPost(API_USERS, { action: "add_user", ...form, created_by: currentUsername });
+      if (data.ok) {
         setMsg({ text: `Участник ${form.username} добавлен!`, ok: true });
         setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "I" });
         onAdded();
-      } else setMsg({ text: parsed.error || "Ошибка", ok: false });
-    } catch { setMsg({ text: "Нет связи с сервером", ok: false }); }
+      } else setMsg({ text: data.error || "Ошибка", ok: false });
+    } catch {
+      setMsg({ text: `[МОК] Участник ${form.username} добавлен (локально)`, ok: true });
+      setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "I" });
+      onAdded();
+    }
     finally { setLoading(false); }
   };
 
@@ -381,41 +427,44 @@ export default function Index() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
+  const [isMock, setIsMock] = useState(false);
+
   const fetchPlayers = useCallback(async () => {
     setLoadingPlayers(true);
     try {
-      const res = await fetch(API_USERS);
-      const data = await res.json();
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      if (parsed.users) setPlayers(parsed.users);
-    } catch { /* silent */ }
+      const { data } = await apiGet(API_USERS);
+      if (data.users) { setPlayers(data.users); setIsMock(false); }
+    } catch {
+      // Мок-режим: используем локальные данные
+      setPlayers(MOCK_USERS.map(({ password: _p, token: _t, ...u }) => { void _p; void _t; return u; }));
+      setIsMock(true);
+    }
     finally { setLoadingPlayers(false); }
   }, []);
 
   useEffect(() => { if (authUser) fetchPlayers(); }, [authUser, fetchPlayers]);
 
   const handleLogin = (user: AuthUser) => { setAuthUser(user); setMyStatus(user.status as Status); };
-  const handleLogout = () => { setAuthUser(null); setPlayers([]); setActiveTab("stats"); };
+  const handleLogout = () => { setAuthUser(null); setPlayers([]); setActiveTab("stats"); setIsMock(false); };
 
   const handleStatusChange = async (status: Status) => {
     setMyStatus(status);
     if (!authUser) return;
-    try {
-      await fetch(API_USERS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set_status", user_id: authUser.id, status }),
-      });
-    } catch { /* silent */ }
+    try { await apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status }); }
+    catch { /* мок: обновляем локально */ }
   };
 
   const handleAddWarning = async (userId: number) => {
-    await fetch(API_USERS, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add_warning", user_id: userId }) });
-    fetchPlayers();
+    try { await apiPost(API_USERS, { action: "add_warning", user_id: userId }); }
+    catch { /* мок */ }
+    if (isMock) setPlayers(p => p.map(u => u.id === userId ? { ...u, warnings: u.warnings + 1 } : u));
+    else fetchPlayers();
   };
   const handleRemoveWarning = async (userId: number) => {
-    await fetch(API_USERS, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remove_warning", user_id: userId }) });
-    fetchPlayers();
+    try { await apiPost(API_USERS, { action: "remove_warning", user_id: userId }); }
+    catch { /* мок */ }
+    if (isMock) setPlayers(p => p.map(u => u.id === userId ? { ...u, warnings: Math.max(0, u.warnings - 1) } : u));
+    else fetchPlayers();
   };
 
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
@@ -460,7 +509,13 @@ export default function Index() {
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-5">
+          <div className="hidden sm:flex items-center gap-4">
+            {isMock && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                <Icon name="WifiOff" size={11} className="text-amber-400" />
+                <span className="font-mono-hud text-[10px] text-amber-400">МОК-РЕЖИМ</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 dot-online" />
               <span className="font-mono-hud text-xs text-purple-500">{onlinePlayers} онлайн</span>
