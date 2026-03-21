@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import HudSelect from "@/components/ui/hud-select";
 import LoginScreen from "@/components/LoginScreen";
 import PlayerRow, { RoleBadge, StatCard, StatusDot, XPBar } from "@/components/shared/PlayerRow";
 import WeekActivityChart from "@/components/shared/WeekActivityChart";
@@ -62,18 +63,26 @@ function AddUserForm({ viewerRole, currentUsername, onAdded }: {
           </div>
           <div>
             <label className={labelCls}>Ранг</label>
-            <select value={form.rank} onChange={e => setForm(p => ({ ...p, rank: e.target.value }))} className={inputCls}>
-              {["I", "II", "III", "IV"].map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <HudSelect
+              value={form.rank}
+              onChange={v => setForm(p => ({ ...p, rank: v }))}
+              options={["I","II","III","IV"].map(r => ({ value: r, label: r }))}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Роль</label>
-            <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={inputCls}>
-              <option value="user">ИГРОК</option>
-              <option value="leader">ЛИДЕР</option>
-              {(viewerRole === "admin" || viewerRole === "curator") && <option value="admin">АДМИНИСТРАТОР</option>}
-              {viewerRole === "curator" && <option value="curator">КУРАТОР</option>}
-            </select>
+            <HudSelect
+              value={form.role}
+              onChange={v => setForm(p => ({ ...p, role: v }))}
+              options={[
+                { value: "user",    label: "ИГРОК",          color: "text-zinc-300" },
+                { value: "leader",  label: "ЛИДЕР",          color: "text-amber-400" },
+                ...(viewerRole === "admin" || viewerRole === "curator"
+                  ? [{ value: "admin", label: "АДМИНИСТРАТОР", color: "text-indigo-400" }] : []),
+                ...(viewerRole === "curator"
+                  ? [{ value: "curator", label: "КУРАТОР",     color: "text-pink-400"   }] : []),
+              ]}
+            />
           </div>
         </div>
 
@@ -108,7 +117,7 @@ function CreateOrgForm({ players, onCreated }: { players: Player[]; onCreated: (
     const org: Organization = {
       id: Date.now(), name: form.name.trim(), tag: form.tag.trim(),
       description: form.description.trim(), leaderId: leader?.id ?? null,
-      leaderName: leader?.username ?? "—", memberCount: 0,
+      leaderName: leader?.username ?? "—", memberIds: [],
       createdAt: new Date().toISOString().slice(0, 10),
     };
     onCreated(org);
@@ -141,10 +150,19 @@ function CreateOrgForm({ players, onCreated }: { players: Player[]; onCreated: (
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Лидер организации</label>
-            <select value={form.leaderId} onChange={e => setForm(p => ({ ...p, leaderId: e.target.value }))} className={inputCls}>
-              <option value="">— Без лидера —</option>
-              {leaders.map(l => <option key={l.id} value={l.id}>{l.username} ({l.role})</option>)}
-            </select>
+            <HudSelect
+              value={form.leaderId}
+              onChange={v => setForm(p => ({ ...p, leaderId: v }))}
+              placeholder="— Без лидера —"
+              options={[
+                { value: "", label: "— Без лидера —", color: "text-purple-600" },
+                ...leaders.map(l => ({
+                  value: String(l.id),
+                  label: `${l.username} (${l.role})`,
+                  color: l.role === "admin" ? "text-indigo-400" : "text-amber-400",
+                })),
+              ]}
+            />
           </div>
         </div>
         {msg && (
@@ -531,6 +549,7 @@ export default function Index() {
                   viewerId={authUser.id}
                   onBack={() => {}}
                   onUpdate={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o))}
+                  onPlayerUpdate={(id, fields) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p))}
                 />
               ) : (
                 <div className="hud-panel p-10 text-center space-y-2">
@@ -551,6 +570,7 @@ export default function Index() {
                   viewerId={authUser.id}
                   onBack={() => setSelectedOrgId(null)}
                   onUpdate={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o))}
+                  onPlayerUpdate={(id, fields) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p))}
                 />
               ) : (
                 <div className="space-y-4">
