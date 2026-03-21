@@ -3,7 +3,7 @@ import Icon from "@/components/ui/icon";
 import {
   Organization, Player, Role, Status, Penalty, Notification,
   STATUS_COLORS, STATUS_LABELS, PENALTY_LABELS,
-  formatTime, nextPenaltyType, countActivePenalties, statusChangePenaltyReason,
+  formatTime, nextPenaltyType, countActivePenalties, statusChangePenaltyReason, issuePenaltyToList,
 } from "@/lib/types";
 import { RoleBadge, StatusDot, XPBar } from "./PlayerRow";
 
@@ -38,13 +38,8 @@ function MemberRow({ player, isLeader, canManage, issuerName, onRemoveFromOrg, o
   const { verbal, reprimand } = countActivePenalties(penalties);
 
   const issuePenalty = (reason: string) => {
-    const type = nextPenaltyType(penalties);
-    const newPenalty: Penalty = {
-      id: Date.now(), type, reason, issuedBy: issuerName,
-      issuedAt: new Date().toISOString(), isActive: true,
-    };
-    const newPenalties = [...penalties, newPenalty];
-    onPenaltyUpdate?.(player.id, newPenalties, type === "excluded");
+    const { newPenalties, excluded } = issuePenaltyToList(penalties, reason, issuerName);
+    onPenaltyUpdate?.(player.id, newPenalties, excluded);
   };
 
   const removePenalty = (penaltyId: number) => {
@@ -261,13 +256,7 @@ export default function OrgDetail({
 
     const reason = statusChangePenaltyReason(fromStatus, toStatus);
     const penalties = player.penalties ?? [];
-    const type = nextPenaltyType(penalties);
-    const newPenalty: Penalty = {
-      id: Date.now(), type, reason, issuedBy: viewerName,
-      issuedAt: new Date().toISOString(), isActive: true,
-    };
-    const newPenalties = [...penalties, newPenalty];
-    const excluded = type === "excluded";
+    const { newPenalties, type, excluded } = issuePenaltyToList(penalties, reason, viewerName);
 
     onPlayerUpdate?.(playerId, {
       status: toStatus,

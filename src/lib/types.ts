@@ -66,6 +66,31 @@ export function nextPenaltyType(penalties: Penalty[]): PenaltyType {
   return "verbal";
 }
 
+// Выдаёт взыскание и обнуляет устные предупреждения при переходе к выговору
+export function issuePenaltyToList(
+  penalties: Penalty[],
+  reason: string,
+  issuedBy: string,
+): { newPenalties: Penalty[]; type: PenaltyType; excluded: boolean } {
+  const type = nextPenaltyType(penalties);
+
+  // При выдаче выговора — снимаем все активные устные предупреждения
+  const base = type === "reprimand"
+    ? penalties.map(p => p.isActive && p.type === "verbal" ? { ...p, isActive: false } : p)
+    : penalties;
+
+  const newPenalty: Penalty = {
+    id: Date.now(), type, reason, issuedBy,
+    issuedAt: new Date().toISOString(), isActive: true,
+  };
+
+  return {
+    newPenalties: [...base, newPenalty],
+    type,
+    excluded: type === "excluded",
+  };
+}
+
 export interface Player {
   id: number;
   username: string;
