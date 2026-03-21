@@ -3,7 +3,70 @@ export const API_USERS = "https://functions.poehali.dev/93e60fdd-bf88-468d-88c8-
 
 export type Role = "user" | "leader" | "admin" | "curator" | "curator_admin" | "curator_faction";
 export type Status = "online" | "afk" | "offline";
-export type Tab = "stats" | "leaderboard" | "users" | "moderation" | "admin_panel" | "organizations";
+export type Tab = "stats" | "leaderboard" | "users" | "moderation" | "admin_panel" | "organizations" | "tables";
+
+// ── Таблицы (Excel-стиль) ─────────────────────────────────────
+export const TABLE_COL_COLORS = [
+  { value: "text-purple-300",  bg: "bg-purple-900/30",  label: "Фиолетовый" },
+  { value: "text-sky-300",     bg: "bg-sky-900/30",     label: "Синий"      },
+  { value: "text-emerald-300", bg: "bg-emerald-900/30", label: "Зелёный"    },
+  { value: "text-amber-300",   bg: "bg-amber-900/30",   label: "Золотой"    },
+  { value: "text-red-300",     bg: "bg-red-900/30",     label: "Красный"    },
+  { value: "text-pink-300",    bg: "bg-pink-900/30",    label: "Розовый"    },
+  { value: "text-zinc-300",    bg: "bg-zinc-900/30",    label: "Серый"      },
+];
+
+export interface TableColumn {
+  id: number;
+  name: string;
+  color: string;  // из TABLE_COL_COLORS[].value
+  width: number;  // px min-width
+}
+
+export interface TableRow {
+  id: number;
+  cells: Record<number, string>; // columnId → text
+}
+
+export interface TableSheet {
+  id: number;
+  name: string;       // "Состав", "Администрация" и т.д.
+  scope: "org" | "admin"; // для какой области
+  orgId?: number;     // если scope=org
+  columns: TableColumn[];
+  rows: TableRow[];
+}
+
+export const MOCK_TABLE_ORG: TableSheet = {
+  id: 1, name: "Состав фракции", scope: "org", orgId: 1,
+  columns: [
+    { id: 1, name: "Никнейм",   color: "text-purple-300", width: 160 },
+    { id: 2, name: "Должность", color: "text-sky-300",    width: 140 },
+    { id: 3, name: "Ранг",      color: "text-amber-300",  width: 80  },
+    { id: 4, name: "Онлайн",    color: "text-emerald-300",width: 100 },
+    { id: 5, name: "Заметки",   color: "text-zinc-300",   width: 200 },
+  ],
+  rows: [
+    { id: 1, cells: { 1: "Shadow_Wolf", 2: "Лидер",       3: "10", 4: "Высокий", 5: "" } },
+    { id: 2, cells: { 1: "Ghost_Rider", 2: "Штурмовик",   3: "4",  4: "Средний", 5: "На испытательном" } },
+  ],
+};
+
+export const MOCK_TABLE_ADMIN: TableSheet = {
+  id: 2, name: "Администрация", scope: "admin",
+  columns: [
+    { id: 1, name: "Никнейм",     color: "text-purple-300", width: 160 },
+    { id: 2, name: "Роль",        color: "text-indigo-300", width: 140 },
+    { id: 3, name: "Куратор",     color: "text-pink-300",   width: 140 },
+    { id: 4, name: "Активность",  color: "text-emerald-300",width: 120 },
+    { id: 5, name: "Примечание",  color: "text-zinc-300",   width: 200 },
+  ],
+  rows: [
+    { id: 1, cells: { 1: "Nexus_Prime",    2: "Администратор", 3: "BlackStar_IX", 4: "Высокая", 5: "" } },
+    { id: 2, cells: { 1: "Curator_Admin",  2: "Кур. Адм.",     3: "BlackStar_IX", 4: "Высокая", 5: "" } },
+    { id: 3, cells: { 1: "Curator_Frac",   2: "Кур. Фракций",  3: "BlackStar_IX", 4: "Средняя", 5: "" } },
+  ],
+};
 
 // Тип взыскания
 export type PenaltyType = "verbal" | "reprimand" | "excluded";

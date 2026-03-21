@@ -4,8 +4,8 @@ import AppHeader from "@/components/hud/AppHeader";
 import { ProfileCard, TabBar } from "@/components/hud/ProfileCard";
 import TabContent from "@/components/hud/TabContent";
 import {
-  API_USERS, MOCK_USERS, MOCK_ORGS, apiPost, apiGet,
-  AuthUser, Player, Organization, Notification, Role, Status, Tab, isCuratorRole,
+  API_USERS, MOCK_USERS, MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN, apiPost, apiGet,
+  AuthUser, Player, Organization, Notification, TableSheet, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
 
 export default function Index() {
@@ -19,6 +19,8 @@ export default function Index() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [loadingPlayers, setLoadingPlayers]   = useState(false);
   const [isMock, setIsMock]                   = useState(false);
+  const [orgTable, setOrgTable]               = useState<TableSheet>(MOCK_TABLE_ORG);
+  const [adminTable, setAdminTable]           = useState<TableSheet>(MOCK_TABLE_ADMIN);
 
   // ── Уведомления ─────────────────────────────────────────────
   const addNotification = (note: Omit<Notification, "id" | "read">) => {
@@ -118,11 +120,14 @@ export default function Index() {
     ? orgs.find(o => o.leaderId === authUser.id) ?? null
     : null;
 
+  const canSeeTables = canManageUsers || viewerRole === "curator_admin";
+
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",   icon: "Activity",   visible: true },
     { id: "leaderboard",   label: "Рейтинг",      icon: "Trophy",     visible: true },
     { id: "users",         label: "Участники",    icon: "Users",      visible: canManageUsers },
     { id: "moderation",    label: "Модерация",    icon: "Shield",     visible: canManageUsers },
+    { id: "tables",        label: "Таблицы",      icon: "Table2",     visible: canSeeTables },
     { id: "organizations", label: "Организации",  icon: "Building2",  visible: isCuratorRole(viewerRole) || viewerRole === "leader" },
     { id: "admin_panel",   label: "Панель",       icon: "Settings",   visible: canAccessAdmin },
   ].filter(t => t.visible);
@@ -197,6 +202,10 @@ export default function Index() {
           onNotify={addNotification}
           onOrgCreated={org => setOrgs(prev => [org, ...prev])}
           onRoleChange={handleRoleChange}
+          orgTable={orgTable}
+          adminTable={adminTable}
+          onOrgTableChange={setOrgTable}
+          onAdminTableChange={setAdminTable}
         />
       </div>
 

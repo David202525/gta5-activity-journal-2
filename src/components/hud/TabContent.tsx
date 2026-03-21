@@ -3,9 +3,10 @@ import Icon from "@/components/ui/icon";
 import PlayerRow, { RoleBadge, StatCard, StatusDot, XPBar } from "@/components/shared/PlayerRow";
 import WeekActivityChart from "@/components/shared/WeekActivityChart";
 import OrgDetail from "@/components/shared/OrgDetail";
+import HudTable from "@/components/shared/HudTable";
 import { AddUserForm, CreateOrgForm } from "@/components/hud/AdminForms";
 import {
-  AuthUser, Player, Organization, Notification, Role, Tab,
+  AuthUser, Player, Organization, Notification, TableSheet, Role, Tab,
   formatTime, isCuratorRole,
 } from "@/lib/types";
 
@@ -36,6 +37,10 @@ interface TabContentProps {
   onNotify: (note: Omit<Notification, "id" | "read">) => void;
   onOrgCreated: (org: Organization) => void;
   onRoleChange?: (id: number, role: Role) => void;
+  orgTable: TableSheet;
+  adminTable: TableSheet;
+  onOrgTableChange: (t: TableSheet) => void;
+  onAdminTableChange: (t: TableSheet) => void;
 }
 
 export default function TabContent({
@@ -44,6 +49,7 @@ export default function TabContent({
   canManageUsers, canAccessAdmin, canSeeFullStats,
   onlinePlayers, afkPlayers, totalOnlineToday,
   sorted, myRank, onRoleChange,
+  orgTable, adminTable, onOrgTableChange, onAdminTableChange,
   onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer,
   onSetSelectedOrgId, onUpdateOrg, onUpdatePlayer, onNotify, onOrgCreated,
 }: TabContentProps) {
@@ -173,6 +179,73 @@ export default function TabContent({
       )}
     </div>
   );
+
+  // ── TABLES ───────────────────────────────────────────────────
+  if (activeTab === "tables") {
+    // Куратор и куратор_адм видят таблицу администрации
+    const canSeeAdmin = viewerRole === "curator" || viewerRole === "curator_admin";
+    // Куратор орг и лидер видят таблицу организации
+    const canSeeOrg = viewerRole === "leader" || viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "admin";
+    // Структуру (столбцы) меняет куратор
+    const canEditOrgStructure = viewerRole === "curator" || viewerRole === "curator_faction";
+    const canEditAdminStructure = viewerRole === "curator" || viewerRole === "curator_admin";
+    // Ячейки редактирует лидер или куратор
+    const canEditOrgCells = viewerRole === "leader" || viewerRole === "curator" || viewerRole === "curator_faction";
+    const canEditAdminCells = viewerRole === "curator" || viewerRole === "curator_admin";
+
+    return (
+      <div className="space-y-5 animate-fade-in">
+        {/* Таблица организации */}
+        {canSeeOrg && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="Building2" size={13} className="text-violet-400" />
+              <span className="font-hud text-sm tracking-wider text-purple-400">ТАБЛИЦА ОРГАНИЗАЦИИ</span>
+              {myOrg && <span className="rank-badge text-[9px] font-hud px-2 py-0.5 text-violet-300/70">{myOrg.name}</span>}
+              {!canEditOrgCells && (
+                <span className="ml-auto flex items-center gap-1 text-[10px] font-mono-hud text-purple-800">
+                  <Icon name="Eye" size={10} /> только просмотр
+                </span>
+              )}
+            </div>
+            <HudTable
+              sheet={orgTable}
+              canEditCells={canEditOrgCells}
+              canEditStructure={canEditOrgStructure}
+              onChange={onOrgTableChange}
+            />
+          </div>
+        )}
+
+        {/* Таблица администрации */}
+        {canSeeAdmin && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="ShieldCheck" size={13} className="text-pink-400" />
+              <span className="font-hud text-sm tracking-wider text-purple-400">ТАБЛИЦА АДМИНИСТРАЦИИ</span>
+              {!canEditAdminCells && (
+                <span className="ml-auto flex items-center gap-1 text-[10px] font-mono-hud text-purple-800">
+                  <Icon name="Eye" size={10} /> только просмотр
+                </span>
+              )}
+            </div>
+            <HudTable
+              sheet={adminTable}
+              canEditCells={canEditAdminCells}
+              canEditStructure={canEditAdminStructure}
+              onChange={onAdminTableChange}
+            />
+          </div>
+        )}
+
+        {!canSeeOrg && !canSeeAdmin && (
+          <div className="hud-panel p-10 text-center font-mono-hud text-xs text-purple-800">
+            Нет доступа к таблицам
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ── ORGANIZATIONS ────────────────────────────────────────────
   if (activeTab === "organizations" && (viewerRole === "curator" || viewerRole === "leader")) return (

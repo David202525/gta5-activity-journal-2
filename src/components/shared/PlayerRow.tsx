@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { Player, Role, Status, STATUS_COLORS, STATUS_LABELS, ROLE_LABELS, formatTime, canEditTarget } from "@/lib/types";
 
-const RANKS = ["I", "II", "III", "IV"];
+const RANKS = ["1","2","3","4","5","6","7","8","9","10"];
 
 export function RoleBadge({ role }: { role: Role }) {
   const cls: Record<Role, string> = {
@@ -131,14 +131,14 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
             {/* RANK */}
             {canEditThis && editingRank ? (
               <div className="relative" onClick={e => e.stopPropagation()}>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1 max-w-[200px]">
                   {RANKS.map(r => (
                     <button key={r} onClick={() => commitRank(r)}
-                      className={`rank-badge text-[9px] font-hud px-2 py-0.5 transition-all ${r === player.rank ? "text-violet-200 scale-110" : "text-violet-400/50 hover:text-violet-200"}`}>
+                      className={`rank-badge text-[9px] font-hud px-2 py-0.5 transition-all ${r === player.rank ? "text-violet-200 border-violet-500/70 scale-110" : "text-violet-400/50 hover:text-violet-200"}`}>
                       {r}
                     </button>
                   ))}
-                  <button onClick={() => setEditingRank(false)} className="text-[10px] text-purple-700 hover:text-purple-400 ml-1">✕</button>
+                  <button onClick={() => setEditingRank(false)} className="text-[10px] text-purple-700 hover:text-purple-400 px-1">✕</button>
                 </div>
               </div>
             ) : (
