@@ -380,7 +380,9 @@ function AdminPanel({ viewerRole, authUser, players, canSeeFullStats, onlinePlay
                   <StatusDot status={player.status} />
                   <div className="flex-1 min-w-0">
                     <div className="font-hud text-sm text-purple-100">{player.username}</div>
-                    <div className="text-[10px] text-purple-700 font-mono-hud">{player.title}</div>
+                    <div className="text-[10px] text-purple-700 font-mono-hud">
+                      {formatTime(player.onlineToday)} сегодня
+                    </div>
                   </div>
                   <RoleBadge role={player.role} />
                   {!isEditing ? (

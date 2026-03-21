@@ -87,7 +87,7 @@ export default function Index() {
     else fetchPlayers();
   };
 
-  const handleEditPlayer = async (userId: number, fields: { username?: string; rank?: string }) => {
+  const handleEditPlayer = async (userId: number, fields: { username?: string; rank?: string; title?: string }) => {
     setPlayers(p => p.map(u => u.id === userId ? { ...u, ...fields } : u));
     try { await apiPost(API_USERS, { action: "edit_user", user_id: userId, ...fields }); }
     catch { /* мок: уже обновили локально */ }

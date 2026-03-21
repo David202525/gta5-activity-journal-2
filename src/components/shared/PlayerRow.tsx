@@ -55,25 +55,37 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   viewerRole?: Role;
   onAddWarning?: (id: number) => void;
   onRemoveWarning?: (id: number) => void;
-  onEditPlayer?: (id: number, fields: { username?: string; rank?: string }) => void;
+  onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string }) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [editingRank, setEditingRank] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
   const [draftName, setDraftName] = useState(player.username);
+  const [draftTitle, setDraftTitle] = useState(player.title);
   const nameRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   // Права: можно ли данному viewer редактировать этого player
   const canEditThis = canEdit && !!viewerRole && canEditTarget(viewerRole, player.role);
 
   useEffect(() => { setDraftName(player.username); }, [player.username]);
+  useEffect(() => { setDraftTitle(player.title); }, [player.title]);
   useEffect(() => { if (editingUsername) nameRef.current?.focus(); }, [editingUsername]);
+  useEffect(() => { if (editingTitle) titleRef.current?.focus(); }, [editingTitle]);
 
   const commitName = () => {
     const trimmed = draftName.trim();
     if (trimmed && trimmed !== player.username) onEditPlayer?.(player.id, { username: trimmed });
     else setDraftName(player.username);
     setEditingUsername(false);
+  };
+
+  const commitTitle = () => {
+    const trimmed = draftTitle.trim();
+    if (trimmed && trimmed !== player.title) onEditPlayer?.(player.id, { title: trimmed });
+    else setDraftTitle(player.title);
+    setEditingTitle(false);
   };
 
   const commitRank = (rank: string) => {
@@ -144,7 +156,27 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
                 onClick={e => { e.stopPropagation(); setEditingUsername(true); }} />
             )}
           </div>
-          <div className="text-[10px] text-purple-700 font-mono-hud mt-0.5">{player.title}</div>
+          {/* TITLE (звание) */}
+          {canEditThis && editingTitle ? (
+            <input
+              ref={titleRef}
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => { if (e.key === "Enter") commitTitle(); if (e.key === "Escape") { setDraftTitle(player.title); setEditingTitle(false); } }}
+              onClick={e => e.stopPropagation()}
+              maxLength={32}
+              className="text-[10px] text-purple-300 font-mono-hud mt-0.5 bg-purple-900/50 border border-violet-600/50 rounded-md px-2 py-0.5 outline-none w-36 focus:border-violet-400/70"
+            />
+          ) : (
+            <div
+              className={`text-[10px] font-mono-hud mt-0.5 ${canEditThis ? "text-purple-500 cursor-text hover:text-purple-300 transition-colors" : "text-purple-700"}`}
+              onClick={e => { if (canEditThis) { e.stopPropagation(); setEditingTitle(true); } }}
+              title={canEditThis ? "Нажмите для изменения звания" : undefined}
+            >
+              {player.title || "—"}
+            </div>
+          )}
         </div>
         <div className="hidden sm:block"><RoleBadge role={player.role} /></div>
         <div className="text-right min-w-[64px]">
