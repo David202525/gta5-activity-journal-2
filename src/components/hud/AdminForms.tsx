@@ -12,16 +12,18 @@ export function AddUserForm({ viewerRole, currentUsername, onAdded }: {
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.username || !form.password) { setMsg({ text: "Заполните ник и пароль", ok: false }); return; }
     setLoading(true); setMsg(null);
-    const exists = dbGetAll().find(u => u.username === form.username);
-    if (exists) { setMsg({ text: "Участник с таким ником уже существует", ok: false }); setLoading(false); return; }
-    dbAddPlayer(form);
-    setMsg({ text: `Участник ${form.username} добавлен!`, ok: true });
-    setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "1" });
-    onAdded();
+    const result = await apiAddPlayer(form);
+    if (result.ok) {
+      setMsg({ text: `Участник ${form.username} добавлен!`, ok: true });
+      setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "1" });
+      onAdded();
+    } else {
+      setMsg({ text: result.error ?? "Ошибка", ok: false });
+    }
     setLoading(false);
   };
 
@@ -64,13 +66,16 @@ export function AddUserForm({ viewerRole, currentUsername, onAdded }: {
               value={form.role}
               onChange={v => setForm(p => ({ ...p, role: v }))}
               options={[
-                { value: "user",    label: "ИГРОК",          color: "text-zinc-300" },
-                { value: "deputy",  label: "ЗАМЕСТИТЕЛЬ",    color: "text-orange-400" },
-                { value: "leader",  label: "ЛИДЕР",          color: "text-amber-400" },
-                ...(viewerRole === "admin" || viewerRole === "curator"
-                  ? [{ value: "admin", label: "АДМИНИСТРАТОР", color: "text-indigo-400" }] : []),
-                ...(viewerRole === "curator"
-                  ? [{ value: "curator", label: "КУРАТОР", color: "text-pink-400" }] : []),
+                { value: "user",            label: "ИГРОК",            color: "text-zinc-300" },
+                { value: "deputy",          label: "ЗАМЕСТИТЕЛЬ",      color: "text-orange-400" },
+                { value: "leader",          label: "ЛИДЕР",            color: "text-amber-400" },
+                { value: "admin",           label: "АДМИНИСТРАТОР",    color: "text-indigo-400" },
+                ...(viewerRole === "curator" || viewerRole === "curator_admin"
+                  ? [
+                      { value: "curator",         label: "КУРАТОР",          color: "text-pink-400" },
+                      { value: "curator_admin",   label: "КУРАТОР АДМИН",    color: "text-violet-400" },
+                      { value: "curator_faction", label: "КУРАТОР ФРАКЦИЙ",  color: "text-fuchsia-400" },
+                    ] : []),
               ]}
             />
           </div>
