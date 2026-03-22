@@ -66,6 +66,7 @@ export default function TabContent({
         players={players} viewerRole={viewerRole} myOrg={myOrg}
         onFetchPlayers={onFetchPlayers} onAddWarning={onAddWarning}
         onRemoveWarning={onRemoveWarning} onEditPlayer={onEditPlayer}
+        onRoleChange={onRoleChange}
       />
     );
 

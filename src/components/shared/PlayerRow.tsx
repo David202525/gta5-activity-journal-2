@@ -50,17 +50,19 @@ export function StatCard({ label, value, icon, sub, delay = 0 }: {
   );
 }
 
-export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWarning, onRemoveWarning, onEditPlayer }: {
+export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: {
   player: Player; index: number; canEdit: boolean;
   viewerRole?: Role;
   onAddWarning?: (id: number) => void;
   onRemoveWarning?: (id: number) => void;
   onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string }) => void;
+  onRoleChange?: (id: number, role: Role) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [editingRank, setEditingRank] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [editingRole, setEditingRole] = useState(false);
   const [draftName, setDraftName] = useState(player.username);
   const [draftTitle, setDraftTitle] = useState(player.title);
   const [draftRank, setDraftRank] = useState(player.rank);
@@ -70,6 +72,28 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
 
   // Права: можно ли данному viewer редактировать этого player
   const canEditThis = canEdit && !!viewerRole && canEditTarget(viewerRole, player.role);
+
+  // Роли которые может назначить этот viewer данному player
+  const availableRoles: { role: Role; label: string; cls: string }[] = (() => {
+    if (!viewerRole || !onRoleChange || !canEditThis) return [];
+    if (viewerRole === "curator") return [
+      { role: "leader",  label: "ЛИДЕР",          cls: "text-amber-400 border-amber-700/50 bg-amber-900/25 hover:bg-amber-800/40" },
+      { role: "deputy",  label: "ЗАМЕСТИТЕЛЬ",    cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
+      { role: "admin",   label: "АДМИНИСТРАТОР",  cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
+      { role: "user",    label: "ИГРОК",          cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+    ];
+    if (viewerRole === "curator_faction") return [
+      { role: "leader",  label: "ЛИДЕР",          cls: "text-amber-400 border-amber-700/50 bg-amber-900/25 hover:bg-amber-800/40" },
+      { role: "deputy",  label: "ЗАМЕСТИТЕЛЬ",    cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
+      { role: "user",    label: "ИГРОК",          cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+    ];
+    if (viewerRole === "curator_admin") return [
+      { role: "admin",   label: "АДМИНИСТРАТОР",  cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
+      { role: "deputy",  label: "ЗАМЕСТИТЕЛЬ",    cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
+      { role: "user",    label: "ИГРОК",          cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+    ];
+    return [];
+  })().filter(r => r.role !== player.role); // не показываем текущую роль
 
   useEffect(() => { setDraftName(player.username); }, [player.username]);
   useEffect(() => { setDraftTitle(player.title); }, [player.title]);
@@ -234,16 +258,46 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
             </div>
           </div>
           {canEdit && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-purple-900/40">
-              <button onClick={e => { e.stopPropagation(); onAddWarning?.(player.id); }}
-                className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-500/10 border border-red-500/25 text-red-400 rounded-lg hover:bg-red-500/18 transition-all">
-                + ПРЕДУПРЕЖДЕНИЕ
-              </button>
-              {player.warnings > 0 && (
-                <button onClick={e => { e.stopPropagation(); onRemoveWarning?.(player.id); }}
-                  className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all">
-                  СНЯТЬ ПРЕДУПР.
+            <div className="mt-4 pt-3 border-t border-purple-900/40 space-y-2.5">
+              {/* Предупреждения */}
+              <div className="flex flex-wrap gap-2">
+                <button onClick={e => { e.stopPropagation(); onAddWarning?.(player.id); }}
+                  className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-500/10 border border-red-500/25 text-red-400 rounded-lg hover:bg-red-500/18 transition-all">
+                  + ПРЕДУПРЕЖДЕНИЕ
                 </button>
+                {player.warnings > 0 && (
+                  <button onClick={e => { e.stopPropagation(); onRemoveWarning?.(player.id); }}
+                    className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all">
+                    СНЯТЬ ПРЕДУПР.
+                  </button>
+                )}
+              </div>
+
+              {/* Смена роли — только кураторам */}
+              {availableRoles.length > 0 && (
+                <div onClick={e => e.stopPropagation()}>
+                  {!editingRole ? (
+                    <button onClick={() => setEditingRole(true)}
+                      className="btn-hud flex items-center gap-1.5 text-[10px] font-hud tracking-wider px-3 py-1.5 bg-purple-900/30 border border-purple-700/40 text-purple-400 rounded-lg hover:bg-purple-800/40 transition-all">
+                      <Icon name="UserCog" size={11} /> СМЕНИТЬ РОЛЬ
+                    </button>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-hud text-purple-700 mr-1">→</span>
+                      {availableRoles.map(r => (
+                        <button key={r.role}
+                          onClick={() => { onRoleChange?.(player.id, r.role); setEditingRole(false); }}
+                          className={`btn-hud text-[10px] font-hud tracking-wider px-2.5 py-1.5 rounded-lg border transition-all ${r.cls}`}>
+                          {r.label}
+                        </button>
+                      ))}
+                      <button onClick={() => setEditingRole(false)}
+                        className="text-[10px] text-purple-800 hover:text-purple-400 px-1 transition-colors">
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

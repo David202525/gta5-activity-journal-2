@@ -42,9 +42,10 @@ interface TabUsersProps {
   onAddWarning: (id: number) => void;
   onRemoveWarning: (id: number) => void;
   onEditPlayer: (id: number, fields: { username?: string; rank?: string }) => void;
+  onRoleChange?: (id: number, role: Role) => void;
 }
 
-export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer }: TabUsersProps) {
+export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: TabUsersProps) {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -63,7 +64,7 @@ export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarn
           <PlayerRow key={player.id} player={player} index={i} canEdit={true}
             viewerRole={viewerRole}
             onAddWarning={onAddWarning} onRemoveWarning={onRemoveWarning}
-            onEditPlayer={onEditPlayer} />
+            onEditPlayer={onEditPlayer} onRoleChange={onRoleChange} />
         ))}
       </div>
     </div>
