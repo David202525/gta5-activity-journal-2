@@ -320,9 +320,8 @@ export function TabAdminPanel({
                   ) : (
                     <div className="flex gap-1.5 flex-wrap">
                       {([
-                        { role: "admin"  as Role, label: "АДМИНИСТРАТОР", cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
-                        { role: "deputy" as Role, label: "ЗАМЕСТИТЕЛЬ",   cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
-                        { role: "user"   as Role, label: "ИГРОК",         cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+                        { role: "admin" as Role, label: "АДМИНИСТРАТОР", cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
+                        { role: "user"  as Role, label: "ИГРОК",         cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
                       ]).map(btn => (
                         <button key={btn.role}
                           onClick={() => { onRoleChange?.(player.id, btn.role); setSubTarget(null); }}

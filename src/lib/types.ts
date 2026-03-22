@@ -159,7 +159,9 @@ export function isCuratorRole(role: Role): boolean {
 
 // Проверяет, может ли viewer редактировать target
 export function canEditTarget(viewerRole: Role, targetRole: Role): boolean {
-  if (isCuratorRole(viewerRole)) return true;
+  if (viewerRole === "curator") return !isCuratorRole(targetRole);
+  if (viewerRole === "curator_admin") return targetRole === "admin" || targetRole === "user";
+  if (viewerRole === "curator_faction") return targetRole === "leader" || targetRole === "deputy" || targetRole === "user";
   if (viewerRole === "admin") return targetRole === "leader" || targetRole === "deputy" || targetRole === "user";
   if (viewerRole === "leader") return targetRole === "deputy" || targetRole === "user";
   if (viewerRole === "deputy") return targetRole === "user";
