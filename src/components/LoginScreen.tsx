@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { AuthUser } from "@/lib/types";
-import { dbLogin } from "@/lib/localDb";
+import { apiLogin } from "@/lib/api";
 
 export default function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [username, setUsername] = useState("");

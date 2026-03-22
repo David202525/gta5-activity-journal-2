@@ -7,7 +7,7 @@ import {
   MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
-import { dbGetPlayers, dbSetStatus, dbEditPlayer, dbAddOnlineMinutes } from "@/lib/localDb";
+import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline } from "@/lib/api";
 
 // ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";

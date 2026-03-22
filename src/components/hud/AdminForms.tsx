@@ -2,7 +2,7 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import HudSelect from "@/components/ui/hud-select";
 import { Organization, Player, Role } from "@/lib/types";
-import { dbAddPlayer, dbGetAll } from "@/lib/localDb";
+import { apiAddPlayer } from "@/lib/api";
 
 // ─── ADD USER FORM ────────────────────────────────────────────
 export function AddUserForm({ viewerRole, currentUsername, onAdded }: {
