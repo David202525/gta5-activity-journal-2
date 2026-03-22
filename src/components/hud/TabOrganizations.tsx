@@ -138,10 +138,23 @@ export function TabAdminPanel({
   onlinePlayers, totalOnlineToday, onFetchPlayers, onRoleChange,
 }: TabAdminPanelProps) {
   const [curatorTarget, setCuratorTarget] = useState<number | null>(null);
-  const isMainCurator = viewerRole === "curator";
+  const [subTarget, setSubTarget]         = useState<number | null>(null);
+  const isMainCurator    = viewerRole === "curator";
+  const isCuratorAdmin   = viewerRole === "curator_admin";
+  const isCuratorFaction = viewerRole === "curator_faction";
+  const isSubCurator     = isCuratorAdmin || isCuratorFaction;
 
   const staffPlayers = players.filter(p => p.role === "admin" || isCuratorRole(p.role));
   const adminPlayers = players.filter(p => p.role === "admin");
+
+  // Список игроков в зоне ответственности суб-куратора
+  const subCuratorTargets = isSubCurator
+    ? players.filter(p => {
+        if (isCuratorAdmin)   return p.role === "admin" || p.role === "deputy" || p.role === "user";
+        if (isCuratorFaction) return p.role === "leader" || p.role === "deputy" || p.role === "user";
+        return false;
+      })
+    : [];
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -270,6 +283,118 @@ export function TabAdminPanel({
                 <span className="text-[10px] font-mono-hud text-purple-600">{item.desc}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Блок для куратора администрации — назначает роли adminPlayers */}
+      {isCuratorAdmin && (
+        <div className="hud-panel p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Icon name="ShieldCheck" size={13} className="text-violet-400" />
+            <span className="font-hud text-xs tracking-widest text-purple-400/80">НАЗНАЧЕНИЕ РОЛЕЙ</span>
+            <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">куратор администрации</span>
+          </div>
+          <div className="text-[10px] font-mono-hud text-purple-700 mb-3 px-1">
+            Вы можете назначать роли «Администратор», «Заместитель» и «Игрок» участникам.
+          </div>
+          <div className="space-y-2">
+            {subCuratorTargets.map(player => {
+              const isEditing = subTarget === player.id;
+              return (
+                <div key={player.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-900/10 border border-purple-800/20">
+                  <StatusDot status={player.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-hud text-sm text-purple-100 truncate">{player.username}</div>
+                    <div className="text-[10px] text-purple-700 font-mono-hud">{formatTime(player.onlineToday)} сегодня</div>
+                  </div>
+                  <RoleBadge role={player.role} />
+                  {!isEditing ? (
+                    <button onClick={() => setSubTarget(player.id)}
+                      className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-violet-900/30 border border-violet-700/40 text-violet-400 rounded-lg hover:bg-violet-800/40 transition-all flex-shrink-0">
+                      РОЛЬ
+                    </button>
+                  ) : (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { role: "admin"  as Role, label: "АДМИНИСТРАТОР", cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
+                        { role: "deputy" as Role, label: "ЗАМЕСТИТЕЛЬ",   cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
+                        { role: "user"   as Role, label: "ИГРОК",         cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+                      ]).map(btn => (
+                        <button key={btn.role}
+                          onClick={() => { onRoleChange?.(player.id, btn.role); setSubTarget(null); }}
+                          className={`btn-hud text-[10px] font-hud tracking-wider px-2.5 py-1.5 rounded-lg border transition-all ${btn.cls}`}>
+                          {btn.label}
+                        </button>
+                      ))}
+                      <button onClick={() => setSubTarget(null)}
+                        className="btn-hud text-[10px] font-hud px-2 py-1.5 rounded-lg border border-purple-900/40 text-purple-700 hover:text-purple-400 transition-all">
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {subCuratorTargets.length === 0 && (
+              <div className="text-xs font-mono-hud text-purple-800 text-center py-3">Нет участников для управления</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Блок для куратора фракций — назначает лидеров и заместителей */}
+      {isCuratorFaction && (
+        <div className="hud-panel p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Icon name="Building2" size={13} className="text-cyan-400" />
+            <span className="font-hud text-xs tracking-widest text-purple-400/80">НАЗНАЧЕНИЕ РОЛЕЙ</span>
+            <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">куратор фракций</span>
+          </div>
+          <div className="text-[10px] font-mono-hud text-purple-700 mb-3 px-1">
+            Вы можете назначать роли «Лидер», «Заместитель» и «Игрок» участникам фракций.
+          </div>
+          <div className="space-y-2">
+            {subCuratorTargets.map(player => {
+              const isEditing = subTarget === player.id;
+              return (
+                <div key={player.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-900/10 border border-purple-800/20">
+                  <StatusDot status={player.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-hud text-sm text-purple-100 truncate">{player.username}</div>
+                    <div className="text-[10px] text-purple-700 font-mono-hud">{formatTime(player.onlineToday)} сегодня</div>
+                  </div>
+                  <RoleBadge role={player.role} />
+                  {!isEditing ? (
+                    <button onClick={() => setSubTarget(player.id)}
+                      className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-cyan-900/30 border border-cyan-700/40 text-cyan-400 rounded-lg hover:bg-cyan-800/40 transition-all flex-shrink-0">
+                      РОЛЬ
+                    </button>
+                  ) : (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { role: "leader" as Role, label: "ЛИДЕР",       cls: "text-amber-400 border-amber-700/50 bg-amber-900/25 hover:bg-amber-800/40" },
+                        { role: "deputy" as Role, label: "ЗАМЕСТИТЕЛЬ", cls: "text-orange-400 border-orange-700/50 bg-orange-900/25 hover:bg-orange-800/40" },
+                        { role: "user"   as Role, label: "ИГРОК",       cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+                      ]).map(btn => (
+                        <button key={btn.role}
+                          onClick={() => { onRoleChange?.(player.id, btn.role); setSubTarget(null); }}
+                          className={`btn-hud text-[10px] font-hud tracking-wider px-2.5 py-1.5 rounded-lg border transition-all ${btn.cls}`}>
+                          {btn.label}
+                        </button>
+                      ))}
+                      <button onClick={() => setSubTarget(null)}
+                        className="btn-hud text-[10px] font-hud px-2 py-1.5 rounded-lg border border-purple-900/40 text-purple-700 hover:text-purple-400 transition-all">
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {subCuratorTargets.length === 0 && (
+              <div className="text-xs font-mono-hud text-purple-800 text-center py-3">Нет участников для управления</div>
+            )}
           </div>
         </div>
       )}
