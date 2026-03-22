@@ -145,12 +145,13 @@ export function TabAdminPanel({
   const isSubCurator     = isCuratorAdmin || isCuratorFaction;
 
   const staffPlayers = players.filter(p => p.role === "admin" || isCuratorRole(p.role));
-  const adminPlayers = players.filter(p => p.role !== "curator" && !isCuratorRole(p.role));
+  // Главный куратор управляет всеми кроме других кураторов
+  const adminPlayers = players.filter(p => !isCuratorRole(p.role) && p.role !== "curator");
 
   // Список игроков в зоне ответственности суб-куратора
   const subCuratorTargets = isSubCurator
     ? players.filter(p => {
-        if (isCuratorAdmin)   return p.role === "admin" || p.role === "deputy" || p.role === "user";
+        if (isCuratorAdmin)   return p.role === "admin" || p.role === "user";
         if (isCuratorFaction) return p.role === "leader" || p.role === "deputy" || p.role === "user";
         return false;
       })

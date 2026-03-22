@@ -213,13 +213,15 @@ interface TabOrdersProps {
   players: Player[];
   orders: Order[];
   onAddOrder: (order: Order) => void;
+  onDeleteOrder?: (id: number) => void;
   onNotify: (note: Omit<Notification, "id" | "read">) => void;
 }
 
-export default function TabOrders({ authUser, viewerRole, players, orders, onAddOrder, onNotify }: TabOrdersProps) {
+export default function TabOrders({ authUser, viewerRole, players, orders, onAddOrder, onDeleteOrder, onNotify }: TabOrdersProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const canPost   = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_faction";
   const canSeeValidation = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "curator_admin";
+  const canDelete = viewerRole === "curator";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -260,12 +262,20 @@ export default function TabOrders({ authUser, viewerRole, players, orders, onAdd
           </div>
         ) : (
           orders.map(order => (
-            <OrderMessage
-              key={order.id}
-              order={order}
-              isMine={order.issuedBy === authUser.username}
-              canSeeValidation={canSeeValidation}
-            />
+            <div key={order.id} className="relative group">
+              <OrderMessage
+                order={order}
+                isMine={order.issuedBy === authUser.username}
+                canSeeValidation={canSeeValidation}
+              />
+              {canDelete && (
+                <button
+                  onClick={() => onDeleteOrder?.(order.id)}
+                  className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity btn-hud text-[9px] font-hud px-2 py-1 bg-red-900/30 border border-red-700/40 text-red-400 rounded-lg hover:bg-red-800/40">
+                  УДАЛИТЬ
+                </button>
+              )}
+            </div>
           ))
         )}
         <div ref={bottomRef} />

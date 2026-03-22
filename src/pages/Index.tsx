@@ -7,7 +7,7 @@ import {
   MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
-import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder } from "@/lib/api";
+import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder, apiDeleteOrder } from "@/lib/api";
 
 // ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";
@@ -253,6 +253,7 @@ export default function Index() {
           onAdminTableChange={setAdminTable}
           orders={orders}
           onAddOrder={async order => { await apiAddOrder(order).catch(() => {}); fetchOrders(); }}
+          onDeleteOrder={async id => { await apiDeleteOrder(id).catch(() => {}); fetchOrders(); }}
         />
       </div>
 

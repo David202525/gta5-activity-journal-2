@@ -60,3 +60,7 @@ export async function apiGetOrders(): Promise<Order[]> {
 export async function apiAddOrder(order: Order): Promise<void> {
   await req("POST", "/orders", order);
 }
+
+export async function apiDeleteOrder(id: number): Promise<void> {
+  await req("DELETE", `/orders/${id}`, {});
+}

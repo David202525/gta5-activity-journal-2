@@ -41,6 +41,7 @@ interface TabContentProps {
   onAdminTableChange: (t: TableSheet) => void;
   orders: Order[];
   onAddOrder: (order: Order) => void;
+  onDeleteOrder?: (id: number) => void;
 }
 
 export default function TabContent({
@@ -50,7 +51,7 @@ export default function TabContent({
   onlinePlayers, afkPlayers, totalOnlineToday,
   sorted, myRank, onRoleChange,
   orgTable, adminTable, onOrgTableChange, onAdminTableChange,
-  orders, onAddOrder,
+  orders, onAddOrder, onDeleteOrder,
   onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer,
   onSetSelectedOrgId, onUpdateOrg, onUpdatePlayer, onNotify, onOrgCreated,
 }: TabContentProps) {
@@ -81,7 +82,7 @@ export default function TabContent({
     return (
       <TabOrders
         authUser={authUser} viewerRole={viewerRole} players={players}
-        orders={orders} onAddOrder={onAddOrder} onNotify={onNotify}
+        orders={orders} onAddOrder={onAddOrder} onDeleteOrder={onDeleteOrder} onNotify={onNotify}
       />
     );
 
