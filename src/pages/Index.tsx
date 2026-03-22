@@ -76,27 +76,16 @@ export default function Index() {
     return () => clearInterval(tick);
   }, [authUser, myStatus]);
 
-  // ── Закрытие вкладки → offline ───────────────────────────────
-  useEffect(() => {
-    if (!authUser) return;
-    const onUnload = () => {
-      navigator.sendBeacon(`/api/users/${authUser.id}/status`, JSON.stringify({ status: "offline" }));
-    };
-    window.addEventListener("beforeunload", onUnload);
-    return () => window.removeEventListener("beforeunload", onUnload);
-  }, [authUser]);
+  // ── Закрытие вкладки — статус НЕ меняем, игрок сам управляет ─
 
   // ── Auth handlers ─────────────────────────────────────────────
   const handleLogin = (user: AuthUser) => {
-    const withOffline = { ...user, status: "offline" as Status };
-    apiSetStatus(user.id, "offline").catch(() => {});
-    saveSession(withOffline);
-    setAuthUser(withOffline);
-    setMyStatus("offline");
+    saveSession(user);
+    setAuthUser(user);
+    setMyStatus(user.status as Status);
   };
 
   const handleLogout = () => {
-    if (authUser) apiSetStatus(authUser.id, "offline").catch(() => {});
     clearSession();
     setAuthUser(null); setPlayers([]); setActiveTab("stats");
   };
