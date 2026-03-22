@@ -145,7 +145,7 @@ export function TabAdminPanel({
   const isSubCurator     = isCuratorAdmin || isCuratorFaction;
 
   const staffPlayers = players.filter(p => p.role === "admin" || isCuratorRole(p.role));
-  const adminPlayers = players.filter(p => p.role === "admin");
+  const adminPlayers = players.filter(p => p.role !== "curator" && !isCuratorRole(p.role));
 
   // Список игроков в зоне ответственности суб-куратора
   const subCuratorTargets = isSubCurator
@@ -248,9 +248,11 @@ export function TabAdminPanel({
                   ) : (
                     <div className="flex gap-1.5 flex-wrap">
                       {([
+                        { role: "admin"           as Role, label: "АДМИН",         cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
                         { role: "curator_admin"   as Role, label: "КУР. АДМИН",   cls: "text-violet-400 border-violet-700/50 bg-violet-900/25 hover:bg-violet-800/40" },
                         { role: "curator_faction" as Role, label: "КУР. ФРАКЦИЙ", cls: "text-cyan-400   border-cyan-700/50   bg-cyan-900/25   hover:bg-cyan-800/40" },
-                        { role: "admin"           as Role, label: "СНЯТЬ",         cls: "text-zinc-500  border-zinc-700/40   bg-zinc-900/20   hover:bg-zinc-800/30" },
+                        { role: "leader"          as Role, label: "ЛИДЕР",         cls: "text-amber-400 border-amber-700/50 bg-amber-900/25 hover:bg-amber-800/40" },
+                        { role: "user"            as Role, label: "ИГРОК",         cls: "text-zinc-500  border-zinc-700/40   bg-zinc-900/20   hover:bg-zinc-800/30" },
                       ]).map(btn => (
                         <button key={btn.role}
                           onClick={() => { onRoleChange?.(player.id, btn.role); setCuratorTarget(null); }}
