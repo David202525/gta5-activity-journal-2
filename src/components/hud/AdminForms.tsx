@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import HudSelect from "@/components/ui/hud-select";
-import { API_USERS, apiPost, Organization, Player, Role } from "@/lib/types";
+import { Organization, Player, Role } from "@/lib/types";
+import { dbAddPlayer, dbGetAll } from "@/lib/localDb";
 
 // ─── ADD USER FORM ────────────────────────────────────────────
 export function AddUserForm({ viewerRole, currentUsername, onAdded }: {
@@ -11,22 +12,17 @@ export function AddUserForm({ viewerRole, currentUsername, onAdded }: {
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.username || !form.password) { setMsg({ text: "Заполните ник и пароль", ok: false }); return; }
     setLoading(true); setMsg(null);
-    try {
-      const { data } = await apiPost(API_USERS, { action: "add_user", ...form, created_by: currentUsername });
-      if (data.ok) {
-        setMsg({ text: `Участник ${form.username} добавлен!`, ok: true });
-        setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "1" });
-        onAdded();
-      } else setMsg({ text: data.error || "Ошибка", ok: false });
-    } catch {
-      setMsg({ text: `[МОК] Участник ${form.username} добавлен (локально)`, ok: true });
-      setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "1" });
-      onAdded();
-    } finally { setLoading(false); }
+    const exists = dbGetAll().find(u => u.username === form.username);
+    if (exists) { setMsg({ text: "Участник с таким ником уже существует", ok: false }); setLoading(false); return; }
+    dbAddPlayer(form);
+    setMsg({ text: `Участник ${form.username} добавлен!`, ok: true });
+    setForm({ username: "", password: "", role: "user", title: "Новобранец", rank: "1" });
+    onAdded();
+    setLoading(false);
   };
 
   const inputCls = "w-full border border-purple-800/40 text-purple-100 text-sm px-4 py-2.5 rounded-xl font-mono-hud focus:outline-none placeholder:text-purple-900/60 transition-all";

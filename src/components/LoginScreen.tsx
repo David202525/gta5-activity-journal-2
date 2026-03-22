@@ -1,35 +1,27 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
-import { RoleBadge } from "@/components/shared/PlayerRow";
-import { AuthUser, MOCK_USERS, API_AUTH, API_USERS, apiPost } from "@/lib/types";
+import { AuthUser } from "@/lib/types";
+import { dbLogin } from "@/lib/localDb";
 
 export default function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showMockHint, setShowMockHint] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) { setError("Введите ник и пароль"); return; }
     setLoading(true); setError("");
-    try {
-      const { ok, data } = await apiPost(API_AUTH, { action: "login", username: username.trim(), password });
-      if (!ok || data.error) setError(data.error || "Ошибка входа");
-      else onLogin(data.user);
-    } catch {
-      setShowMockHint(true);
-      const found = MOCK_USERS.find(u => u.username === username.trim() && u.password === password);
-      if (found) {
-        const { password: _p, ...user } = found;
-        void _p;
-        onLogin({ ...user, status: "online" });
-      } else {
-        setError("Неверный ник или пароль");
-      }
+    const found = dbLogin(username.trim(), password);
+    if (found) {
+      const { password: _p, token: _t, ...user } = found;
+      void _p; void _t;
+      onLogin(user as AuthUser);
+    } else {
+      setError("Неверный ник или пароль");
     }
-    finally { setLoading(false); }
+    setLoading(false);
   };
 
   return (
@@ -96,24 +88,6 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => 
             </button>
           </form>
 
-          {showMockHint && (
-            <div className="mt-4 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Icon name="WifiOff" size={11} className="text-amber-400" />
-                <span className="text-[10px] font-hud tracking-wider text-amber-400">СЕРВЕР НЕДОСТУПЕН — МОК-РЕЖИМ</span>
-              </div>
-              <div className="space-y-1">
-                {MOCK_USERS.map(u => (
-                  <button key={u.id} onClick={() => { setUsername(u.username); setPassword(u.password); }}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-all text-left">
-                    <span className="font-mono-hud text-[10px] text-purple-300">{u.username}</span>
-                    <RoleBadge role={u.role} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="mt-4 pt-4 border-t border-white/5 text-center">
             <p className="text-[10px] text-purple-900/80 font-mono-hud">
               Доступ предоставляется куратором или администратором
@@ -124,6 +98,3 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => 
     </div>
   );
 }
-
-// Экспортируем API_USERS чтобы Index.tsx мог использовать его из этого файла при необходимости
-export { API_USERS };

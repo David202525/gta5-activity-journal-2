@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import LoginScreen from "@/components/LoginScreen";
 import AppHeader from "@/components/hud/AppHeader";
 import { ProfileCard, TabBar } from "@/components/hud/ProfileCard";
 import TabContent from "@/components/hud/TabContent";
 import {
-  API_USERS, MOCK_USERS, MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN, apiPost, apiGet,
+  MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
+import { dbGetPlayers, dbSetStatus, dbEditPlayer, dbAddOnlineMinutes } from "@/lib/localDb";
 
+// ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";
-const SESSION_TTL = 15 * 60 * 1000; // 15 минут
+const SESSION_TTL = 15 * 60 * 1000;
 
 function loadSession(): AuthUser | null {
   try {
@@ -30,46 +32,37 @@ function clearSession() {
 }
 
 export default function Index() {
-  const [authUser, setAuthUser]               = useState<AuthUser | null>(() => loadSession());
-  const [activeTab, setActiveTab]             = useState<Tab>("stats");
-  const [myStatus, setMyStatus]               = useState<Status>(() => loadSession()?.status as Status ?? "offline");
-  const [players, setPlayers]                 = useState<Player[]>([]);
-  const [orgs, setOrgs]                       = useState<Organization[]>(MOCK_ORGS);
-  const [selectedOrgId, setSelectedOrgId]     = useState<number | null>(null);
-  const [notifications, setNotifications]     = useState<Notification[]>([]);
+  const [authUser, setAuthUser]           = useState<AuthUser | null>(() => loadSession());
+  const [activeTab, setActiveTab]         = useState<Tab>("stats");
+  const [myStatus, setMyStatus]           = useState<Status>(() => loadSession()?.status as Status ?? "offline");
+  const [players, setPlayers]             = useState<Player[]>([]);
+  const [orgs, setOrgs]                   = useState<Organization[]>(MOCK_ORGS);
+  const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [loadingPlayers, setLoadingPlayers]   = useState(false);
-  const [isMock, setIsMock]                   = useState(false);
-  const [orgTable, setOrgTable]               = useState<TableSheet>(MOCK_TABLE_ORG);
-  const [adminTable, setAdminTable]           = useState<TableSheet>(MOCK_TABLE_ADMIN);
-  const [orders, setOrders]                   = useState<Order[]>([]);
+  const [orgTable, setOrgTable]           = useState<TableSheet>(MOCK_TABLE_ORG);
+  const [adminTable, setAdminTable]       = useState<TableSheet>(MOCK_TABLE_ADMIN);
+  const [orders, setOrders]               = useState<Order[]>([]);
 
-  // ── Уведомления ─────────────────────────────────────────────
+  // ── Уведомления ──────────────────────────────────────────────
   const addNotification = (note: Omit<Notification, "id" | "read">) => {
     setNotifications(prev => [{ ...note, id: Date.now(), read: false }, ...prev]);
     setShowNotifications(true);
   };
 
-  // ── Загрузка игроков ─────────────────────────────────────────
-  const fetchPlayers = useCallback(async () => {
-    setLoadingPlayers(true);
-    try {
-      const { data } = await apiGet(API_USERS);
-      if (data.users) { setPlayers(data.users); setIsMock(false); }
-    } catch {
-      setPlayers(MOCK_USERS.map(({ password: _p, token: _t, ...u }) => { void _p; void _t; return u; }));
-      setIsMock(true);
-    } finally { setLoadingPlayers(false); }
-  }, []);
+  // ── Загрузка игроков из localStorage ─────────────────────────
+  const fetchPlayers = () => {
+    setPlayers(dbGetPlayers());
+  };
 
-  useEffect(() => { if (authUser) fetchPlayers(); }, [authUser, fetchPlayers]);
+  useEffect(() => { if (authUser) fetchPlayers(); }, [authUser]);
 
-  // ── Heartbeat ────────────────────────────────────────────────
+  // ── Heartbeat: каждую минуту прибавляем 1 мин онлайна ────────
   useEffect(() => {
     if (!authUser || myStatus !== "online") return;
-    const tick = setInterval(async () => {
-      try { await apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status: "online" }); }
-      catch { /* мок-режим */ }
+    const tick = setInterval(() => {
+      dbAddOnlineMinutes(authUser.id, 1);
+      fetchPlayers();
     }, 60_000);
     return () => clearInterval(tick);
   }, [authUser, myStatus]);
@@ -78,70 +71,80 @@ export default function Index() {
   useEffect(() => {
     if (!authUser) return;
     const onUnload = () => {
-      navigator.sendBeacon(API_USERS, JSON.stringify({ action: "set_status", user_id: authUser.id, status: "offline" }));
+      dbSetStatus(authUser.id, "offline");
     };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [authUser]);
 
-  // ── Auth handlers ────────────────────────────────────────────
+  // ── Auth handlers ─────────────────────────────────────────────
   const handleLogin = (user: AuthUser) => {
     const withOffline = { ...user, status: "offline" as Status };
+    dbSetStatus(user.id, "offline");
     saveSession(withOffline);
     setAuthUser(withOffline);
     setMyStatus("offline");
   };
+
   const handleLogout = () => {
-    if (authUser) apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status: "offline" }).catch(() => {});
+    if (authUser) dbSetStatus(authUser.id, "offline");
     clearSession();
-    setAuthUser(null); setPlayers([]); setActiveTab("stats"); setIsMock(false);
+    setAuthUser(null); setPlayers([]); setActiveTab("stats");
   };
 
-  // ── Status / warnings / edit ─────────────────────────────────
-  const handleStatusChange = async (status: Status) => {
+  // ── Смена статуса ─────────────────────────────────────────────
+  const handleStatusChange = (status: Status) => {
     setMyStatus(status);
     if (!authUser) return;
+    dbSetStatus(authUser.id, status);
     const updated = { ...authUser, status };
     setAuthUser(updated);
     saveSession(updated);
-    try { await apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status }); }
-    catch { /* мок */ }
+    fetchPlayers();
   };
 
-  const handleAddWarning = async (userId: number) => {
-    try { await apiPost(API_USERS, { action: "add_warning", user_id: userId }); } catch { /* мок */ }
-    if (isMock) setPlayers(p => p.map(u => u.id === userId ? { ...u, warnings: u.warnings + 1 } : u));
-    else fetchPlayers();
+  // ── Предупреждения ────────────────────────────────────────────
+  const handleAddWarning = (userId: number) => {
+    const all = dbGetPlayers();
+    const player = all.find(u => u.id === userId);
+    if (!player) return;
+    dbEditPlayer(userId, { warnings: player.warnings + 1 });
+    fetchPlayers();
   };
 
-  const handleRemoveWarning = async (userId: number) => {
-    try { await apiPost(API_USERS, { action: "remove_warning", user_id: userId }); } catch { /* мок */ }
-    if (isMock) setPlayers(p => p.map(u => u.id === userId ? { ...u, warnings: Math.max(0, u.warnings - 1) } : u));
-    else fetchPlayers();
+  const handleRemoveWarning = (userId: number) => {
+    const all = dbGetPlayers();
+    const player = all.find(u => u.id === userId);
+    if (!player) return;
+    dbEditPlayer(userId, { warnings: Math.max(0, player.warnings - 1) });
+    fetchPlayers();
   };
 
-  const handleEditPlayer = async (userId: number, fields: { username?: string; rank?: string; title?: string }) => {
-    setPlayers(p => p.map(u => u.id === userId ? { ...u, ...fields } : u));
-    try { await apiPost(API_USERS, { action: "edit_user", user_id: userId, ...fields }); }
-    catch { /* мок: уже обновили локально */ }
+  // ── Редактирование игрока ─────────────────────────────────────
+  const handleEditPlayer = (userId: number, fields: { username?: string; rank?: string; title?: string }) => {
+    dbEditPlayer(userId, fields);
+    fetchPlayers();
   };
 
-  const handleUpdatePlayer = (id: number, fields: Partial<Player>) =>
-    setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p));
+  const handleUpdatePlayer = (id: number, fields: Partial<Player>) => {
+    dbEditPlayer(id, fields);
+    fetchPlayers();
+  };
 
+  // ── Организации ───────────────────────────────────────────────
   const handleUpdateOrg = (updated: Organization) =>
     setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o));
 
-  const handleRoleChange = async (userId: number, role: Role) => {
-    setPlayers(p => p.map(u => u.id === userId ? { ...u, role } : u));
-    try { await apiPost(API_USERS, { action: "edit_user", user_id: userId, role }); }
-    catch { /* мок: уже обновили */ }
+  // ── Смена роли ────────────────────────────────────────────────
+  const handleRoleChange = (userId: number, role: Role) => {
+    dbEditPlayer(userId, { role });
+    fetchPlayers();
   };
 
-  // ── Экран входа ──────────────────────────────────────────────
+  // ── Экран входа ───────────────────────────────────────────────
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
 
-  // ── Производные данные ───────────────────────────────────────
+  // ── Производные данные ────────────────────────────────────────
   const viewerRole      = authUser.role as Role;
   const canAccessAdmin  = viewerRole === "admin" || isCuratorRole(viewerRole);
   const canManageUsers  = viewerRole === "admin" || isCuratorRole(viewerRole) || viewerRole === "leader" || viewerRole === "deputy";
@@ -151,31 +154,30 @@ export default function Index() {
     ? orgs.find(o => o.leaderId === authUser.id) ?? null
     : null;
 
-  const canSeeTables  = canManageUsers || viewerRole === "curator_admin";
-  const canSeeOrders  = viewerRole === "leader" || viewerRole === "deputy" || isCuratorRole(viewerRole);
+  const canSeeTables = canManageUsers || viewerRole === "curator_admin";
+  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || isCuratorRole(viewerRole);
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
-    { id: "stats",         label: "Статистика",   icon: "Activity",    visible: true },
-    { id: "leaderboard",   label: "Рейтинг",      icon: "Trophy",      visible: true },
-    { id: "users",         label: "Участники",    icon: "Users",       visible: canManageUsers },
-    { id: "moderation",    label: "Модерация",    icon: "Shield",      visible: canManageUsers },
-    { id: "tables",        label: "Таблицы",      icon: "Table2",      visible: canSeeTables },
-    { id: "orders",        label: "Приказная",    icon: "ScrollText",  visible: canSeeOrders },
-    { id: "organizations", label: "Организации",  icon: "Building2",   visible: isCuratorRole(viewerRole) || viewerRole === "leader" },
-    { id: "admin_panel",   label: "Панель",       icon: "Settings",    visible: canAccessAdmin },
+    { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
+    { id: "leaderboard",   label: "Рейтинг",     icon: "Trophy",     visible: true },
+    { id: "users",         label: "Участники",   icon: "Users",      visible: canManageUsers },
+    { id: "moderation",    label: "Модерация",   icon: "Shield",     visible: canManageUsers },
+    { id: "tables",        label: "Таблицы",     icon: "Table2",     visible: canSeeTables },
+    { id: "orders",        label: "Приказная",   icon: "ScrollText", visible: canSeeOrders },
+    { id: "organizations", label: "Организации", icon: "Building2",  visible: isCuratorRole(viewerRole) || viewerRole === "leader" },
+    { id: "admin_panel",   label: "Панель",      icon: "Settings",   visible: canAccessAdmin },
   ].filter(t => t.visible);
 
   const handleTabChange = (tab: Tab) => { setActiveTab(tab); setSelectedOrgId(null); };
 
-  const onlinePlayers   = players.filter(p => p.status === "online").length;
-  const afkPlayers      = players.filter(p => p.status === "afk").length;
+  const onlinePlayers    = players.filter(p => p.status === "online").length;
+  const afkPlayers       = players.filter(p => p.status === "afk").length;
   const totalOnlineToday = players.reduce((s, p) => s + p.onlineToday, 0);
-  const sorted          = [...players].sort((a, b) => b.reputation - a.reputation);
-  const myRank          = sorted.findIndex(p => p.id === authUser.id) + 1;
+  const sorted           = [...players].sort((a, b) => b.reputation - a.reputation);
+  const myRank           = sorted.findIndex(p => p.id === authUser.id) + 1;
 
   return (
     <div className="hud-scanlines min-h-screen bg-[#09060f] text-purple-100 font-body">
-      {/* Ambient blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-violet-800/15 rounded-full blur-3xl" />
         <div className="absolute top-1/2 -right-40 w-96 h-96 bg-purple-900/12 rounded-full blur-3xl" />
@@ -189,7 +191,7 @@ export default function Index() {
         onAddOrder={order => setOrders(prev => [...prev, order])}
         onlinePlayers={onlinePlayers}
         afkPlayers={afkPlayers}
-        isMock={isMock}
+        isMock={false}
         notifications={notifications}
         showNotifications={showNotifications}
         onToggleNotifications={() => setShowNotifications(v => !v)}
@@ -219,7 +221,7 @@ export default function Index() {
           players={players}
           orgs={orgs}
           selectedOrgId={selectedOrgId}
-          loadingPlayers={loadingPlayers}
+          loadingPlayers={false}
           myOrg={myOrg}
           canManageUsers={canManageUsers}
           canAccessAdmin={canAccessAdmin}
@@ -248,7 +250,6 @@ export default function Index() {
         />
       </div>
 
-      {/* Footer */}
       <div className="border-t border-purple-900/30 mt-8 py-4 px-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="font-mono-hud text-[10px] text-purple-900 tracking-widest">GTA ACTIVITY HUB · {new Date().toLocaleDateString("ru")}</div>
