@@ -52,8 +52,8 @@ export function TabOrganizations({
         )
       )}
 
-      {/* CURATOR VIEW */}
-      {viewerRole === "curator" && (
+      {/* CURATOR VIEW — все типы кураторов */}
+      {isCuratorRole(viewerRole) && (
         selectedOrgId !== null ? (
           <OrgDetail
             org={orgs.find(o => o.id === selectedOrgId)!}
@@ -113,7 +113,7 @@ export function TabOrganizations({
                 </div>
               )}
             </div>
-            <CreateOrgForm players={players} onCreated={onOrgCreated} />
+            {viewerRole === "curator" && <CreateOrgForm players={players} onCreated={onOrgCreated} />}
           </div>
         )
       )}
