@@ -9,19 +9,18 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) { setError("Введите ник и пароль"); return; }
     setLoading(true); setError("");
-    const found = dbLogin(username.trim(), password);
-    if (found) {
-      const { password: _p, token: _t, ...user } = found;
-      void _p; void _t;
-      onLogin(user as AuthUser);
-    } else {
+    try {
+      const user = await apiLogin(username.trim(), password);
+      onLogin(user);
+    } catch {
       setError("Неверный ник или пароль");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
