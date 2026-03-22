@@ -7,7 +7,7 @@ import {
   MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
-import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline } from "@/lib/api";
+import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder } from "@/lib/api";
 
 // ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";
@@ -58,20 +58,29 @@ export default function Index() {
     } catch { /* сервер недоступен */ }
   };
 
-  useEffect(() => { if (authUser) fetchPlayers(); }, [authUser]);
+  // ── Загрузка приказов с сервера ──────────────────────────────
+  const fetchOrders = async () => {
+    try {
+      const list = await apiGetOrders();
+      setOrders(list);
+    } catch { /* сервер недоступен */ }
+  };
+
+  useEffect(() => { if (authUser) { fetchPlayers(); fetchOrders(); } }, [authUser]);
 
   // ── Опрос каждые 10 сек ───────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
-    const poll = setInterval(fetchPlayers, 10_000);
+    const poll = setInterval(() => { fetchPlayers(); fetchOrders(); }, 10_000);
     return () => clearInterval(poll);
   }, [authUser]);
 
   // ── Heartbeat: каждую минуту прибавляем 1 мин онлайна ────────
   useEffect(() => {
     if (!authUser || myStatus !== "online") return;
-    const tick = setInterval(() => {
-      apiAddOnline(authUser.id, 1).catch(() => {});
+    const tick = setInterval(async () => {
+      await apiAddOnline(authUser.id, 1).catch(() => {});
+      fetchPlayers();
     }, 60_000);
     return () => clearInterval(tick);
   }, [authUser, myStatus]);
@@ -184,7 +193,7 @@ export default function Index() {
         viewerRole={viewerRole}
         players={players}
         orders={orders}
-        onAddOrder={order => setOrders(prev => [...prev, order])}
+        onAddOrder={async order => { await apiAddOrder(order).catch(() => {}); fetchOrders(); }}
         onlinePlayers={onlinePlayers}
         afkPlayers={afkPlayers}
         isMock={false}
@@ -242,7 +251,7 @@ export default function Index() {
           onOrgTableChange={setOrgTable}
           onAdminTableChange={setAdminTable}
           orders={orders}
-          onAddOrder={order => setOrders(prev => [...prev, order])}
+          onAddOrder={async order => { await apiAddOrder(order).catch(() => {}); fetchOrders(); }}
         />
       </div>
 

@@ -1,4 +1,4 @@
-import { Player, AuthUser } from "./types";
+import { Player, AuthUser, Order } from "./types";
 
 const BASE = `/api`;
 
@@ -50,4 +50,13 @@ export async function apiEditPlayer(userId: number, fields: Partial<Player & { p
 
 export async function apiDeletePlayer(userId: number): Promise<void> {
   await req("DELETE", `/users/${userId}`, {});
+}
+
+export async function apiGetOrders(): Promise<Order[]> {
+  const data = await req<{ orders: Order[] }>("GET", "/orders");
+  return data.orders;
+}
+
+export async function apiAddOrder(order: Order): Promise<void> {
+  await req("POST", "/orders", order);
 }
