@@ -222,6 +222,7 @@ export default function Index() {
         <TabContent
           activeTab={activeTab}
           authUser={authUser}
+          myStatus={myStatus}
           viewerRole={viewerRole}
           players={players}
           orgs={orgs}

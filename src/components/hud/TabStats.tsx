@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import WeekActivityChart from "@/components/shared/WeekActivityChart";
 import { StatCard, XPBar } from "@/components/shared/PlayerRow";
 import Icon from "@/components/ui/icon";
@@ -6,9 +7,23 @@ import { AuthUser, formatTime } from "@/lib/types";
 interface TabStatsProps {
   authUser: AuthUser;
   myRank: number;
+  isOnline?: boolean;
 }
 
-export default function TabStats({ authUser, myRank }: TabStatsProps) {
+export default function TabStats({ authUser, myRank, isOnline }: TabStatsProps) {
+  const [extraSecs, setExtraSecs] = useState(0);
+
+  useEffect(() => {
+    if (!isOnline) { setExtraSecs(0); return; }
+    const tick = setInterval(() => setExtraSecs(s => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, [isOnline]);
+
+  const totalSecs = authUser.onlineToday * 60 + extraSecs;
+  const displayToday = totalSecs >= 60
+    ? formatTime(Math.floor(totalSecs / 60))
+    : `${totalSecs}с`;
+
   const verbalCount    = authUser.penalties.filter(p => p.type === "verbal"    && p.isActive).length;
   const reprimandCount = authUser.penalties.filter(p => p.type === "reprimand" && p.isActive).length;
   const hasPenalties   = verbalCount > 0 || reprimandCount > 0;
@@ -16,7 +31,7 @@ export default function TabStats({ authUser, myRank }: TabStatsProps) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Онлайн сегодня" value={formatTime(authUser.onlineToday)} icon="Clock" sub="личная" delay={0} />
+        <StatCard label="Онлайн сегодня" value={displayToday} icon="Clock" sub="личная" delay={0} />
         <StatCard label="За неделю" value={formatTime(authUser.onlineWeek)} icon="Calendar" sub="7 дней" delay={60} />
         <StatCard label="Репутация" value={authUser.reputation.toLocaleString()} icon="Star" sub={myRank > 0 ? `ТОП ${myRank}` : "—"} delay={120} />
         <StatCard label="Уровень" value={`LVL ${authUser.level}`} icon="TrendingUp" sub={`${authUser.xp}/${authUser.xpMax} XP`} delay={180} />

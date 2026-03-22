@@ -10,6 +10,7 @@ import {
 interface TabContentProps {
   activeTab: Tab;
   authUser: AuthUser;
+  myStatus?: string;
   viewerRole: Role;
   players: Player[];
   orgs: Organization[];
@@ -43,7 +44,7 @@ interface TabContentProps {
 }
 
 export default function TabContent({
-  activeTab, authUser, viewerRole, players, orgs,
+  activeTab, authUser, myStatus, viewerRole, players, orgs,
   selectedOrgId, loadingPlayers, myOrg,
   canManageUsers, canAccessAdmin, canSeeFullStats,
   onlinePlayers, afkPlayers, totalOnlineToday,
@@ -57,7 +58,7 @@ export default function TabContent({
   if (activeTab === "stats") {
     const freshMe = players.find(p => p.id === authUser.id);
     const statsUser = freshMe ? { ...authUser, ...freshMe } : authUser;
-    return <TabStats authUser={statsUser} myRank={myRank} />;
+    return <TabStats authUser={statsUser} myRank={myRank} isOnline={myStatus === "online"} />;
   }
 
   if (activeTab === "leaderboard")

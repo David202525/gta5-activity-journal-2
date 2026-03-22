@@ -4,7 +4,7 @@ import Icon from "@/components/ui/icon";
 export interface SelectOption {
   value: string;
   label: string;
-  color?: string; // доп. цвет метки
+  color?: string;
 }
 
 interface HudSelectProps {
@@ -17,8 +17,8 @@ interface HudSelectProps {
 
 export default function HudSelect({ value, onChange, options, placeholder = "Выбрать...", className = "" }: HudSelectProps) {
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
   const selected = options.find(o => o.value === value);
 
   useEffect(() => {
@@ -29,12 +29,21 @@ export default function HudSelect({ value, onChange, options, placeholder = "В�
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const handleOpen = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUp(spaceBelow < 220);
+    }
+    setOpen(!open);
+  };
+
   return (
     <div ref={ref} className={`relative ${className}`}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between gap-2 border border-purple-800/40 text-purple-100 text-sm px-4 py-2.5 rounded-xl font-mono-hud focus:outline-none bg-transparent hover:border-violet-600/50 focus:border-violet-600/50 transition-all"
+        onClick={handleOpen}
+        className="w-full flex items-center justify-between gap-2 border border-purple-800/40 text-purple-100 text-sm px-4 py-2.5 rounded-xl font-mono-hud focus:outline-none bg-transparent hover:border-violet-600/50 transition-all"
       >
         <span className={selected?.color ?? "text-purple-100"}>
           {selected ? selected.label : <span className="text-purple-700">{placeholder}</span>}
@@ -43,7 +52,9 @@ export default function HudSelect({ value, onChange, options, placeholder = "В�
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-y-auto max-h-64">
+        <div className={`absolute z-50 left-0 right-0 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-y-auto max-h-56 ${
+          openUp ? "bottom-full mb-1" : "top-full mt-1"
+        }`}>
           {options.map(opt => (
             <button
               key={opt.value}
