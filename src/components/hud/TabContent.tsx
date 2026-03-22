@@ -54,8 +54,11 @@ export default function TabContent({
   onSetSelectedOrgId, onUpdateOrg, onUpdatePlayer, onNotify, onOrgCreated,
 }: TabContentProps) {
 
-  if (activeTab === "stats")
-    return <TabStats authUser={authUser} myRank={myRank} />;
+  if (activeTab === "stats") {
+    const freshMe = players.find(p => p.id === authUser.id);
+    const statsUser = freshMe ? { ...authUser, ...freshMe } : authUser;
+    return <TabStats authUser={statsUser} myRank={myRank} />;
+  }
 
   if (activeTab === "leaderboard")
     return <TabLeaderboard sorted={sorted} canSeeFullStats={canSeeFullStats} loadingPlayers={loadingPlayers} />;

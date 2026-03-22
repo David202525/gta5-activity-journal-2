@@ -43,7 +43,7 @@ export default function HudSelect({ value, onChange, options, placeholder = "Ð’Ñ
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-y-auto max-h-64">
           {options.map(opt => (
             <button
               key={opt.value}
