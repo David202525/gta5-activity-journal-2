@@ -74,7 +74,7 @@ export default function TabContent({
         viewerRole={viewerRole} players={players} myOrg={myOrg}
         orgTable={orgTable} adminTable={adminTable}
         onOrgTableChange={onOrgTableChange} onAdminTableChange={onAdminTableChange}
-        onUpdatePlayer={onUpdatePlayer}
+        onUpdatePlayer={onUpdatePlayer} onNotify={onNotify}
       />
     );
 

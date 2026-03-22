@@ -7,21 +7,46 @@ const AUTO_COLS = new Set([COL_ID_VERBAL, COL_ID_REPRIMAND]);
 
 // ─── PENALTY CELL ────────────────────────────────────────────
 function PenaltyCell({ value, colId, canEdit, onSave }: {
-  value: string; colId: number; canEdit: boolean; onSave: (v: string) => void;
+  value: string; colId: number; canEdit: boolean;
+  onSave: (v: string, reason: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const isVerbal    = colId === COL_ID_VERBAL;
-  const max         = isVerbal ? 2 : 3;
-  const options     = Array.from({ length: max + 1 }, (_, i) => i);
-  const num         = parseInt(value) || 0;
+  const [open, setOpen]       = useState(false);
+  const [step, setStep]       = useState<"pick" | "reason">("pick");
+  const [pending, setPending] = useState<number | null>(null);
+  const [reason, setReason]   = useState("");
+  const ref     = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  const isVerbal = colId === COL_ID_VERBAL;
+  const max      = isVerbal ? 2 : 3;
+  const options  = Array.from({ length: max + 1 }, (_, i) => i);
+  const num      = parseInt(value) || 0;
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) close(); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  useEffect(() => {
+    if (step === "reason") setTimeout(() => textRef.current?.focus(), 50);
+  }, [step]);
+
+  const close = () => { setOpen(false); setStep("pick"); setPending(null); setReason(""); };
+
+  const pickNumber = (n: number) => {
+    if (n === num) { close(); return; }
+    if (n === 0) { onSave("0", "Снято"); close(); return; }
+    setPending(n);
+    setStep("reason");
+  };
+
+  const confirm = () => {
+    if (!reason.trim()) return;
+    onSave(String(pending!), reason.trim());
+    close();
+  };
 
   const colorCls = num === 0
     ? "text-purple-700"
@@ -33,32 +58,65 @@ function PenaltyCell({ value, colId, canEdit, onSave }: {
     <div ref={ref} className="relative px-2 py-1.5">
       <div
         className={`text-[11px] font-mono-hud ${colorCls} ${canEdit ? "cursor-pointer hover:opacity-80" : ""} select-none`}
-        onClick={() => canEdit && setOpen(o => !o)}
+        onClick={() => { if (canEdit) { setOpen(o => !o); setStep("pick"); } }}
         title={canEdit ? "Нажмите для изменения" : undefined}
       >
         {num === 0 ? "—" : num}
       </div>
 
       {open && canEdit && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-xl overflow-hidden">
-          <div className="px-3 py-2 border-b border-purple-900/40">
+        <div className="absolute left-0 top-full mt-1 z-50 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-xl w-56">
+          <div className="px-3 py-2 border-b border-purple-900/40 flex items-center justify-between">
             <div className="text-[10px] font-hud tracking-widest text-purple-600">
               {isVerbal ? "УСТ. ПРЕДУПРЕЖДЕНИЯ" : "ВЫГОВОРЫ"} (0–{max})
             </div>
+            <button onClick={close} className="text-purple-800 hover:text-purple-400 transition-colors">
+              <Icon name="X" size={11} />
+            </button>
           </div>
-          <div className="flex gap-1 p-2">
-            {options.map(n => (
-              <button key={n}
-                onClick={() => { onSave(String(n)); setOpen(false); }}
-                className={`w-8 h-8 rounded-lg font-hud text-sm border transition-all
-                  ${n === num
-                    ? "border-violet-500/70 bg-violet-700/30 text-violet-200"
-                    : "border-purple-800/40 text-purple-500 hover:border-violet-600/50 hover:text-violet-300"
-                  }`}>
-                {n}
-              </button>
-            ))}
-          </div>
+
+          {step === "pick" && (
+            <div className="flex gap-1.5 p-3">
+              {options.map(n => (
+                <button key={n} onClick={() => pickNumber(n)}
+                  className={`w-9 h-9 rounded-lg font-hud text-sm border transition-all flex-1
+                    ${n === num
+                      ? "border-violet-500/70 bg-violet-700/30 text-violet-200"
+                      : "border-purple-800/40 text-purple-500 hover:border-violet-600/50 hover:text-violet-300"
+                    }`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {step === "reason" && (
+            <div className="p-3 space-y-2.5">
+              <div className="text-[10px] font-hud text-purple-500">
+                Укажите причину выдачи <span className={isVerbal ? "text-yellow-400" : "text-orange-400"}>×{pending}</span>
+              </div>
+              <textarea
+                ref={textRef}
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); confirm(); } if (e.key === "Escape") close(); }}
+                placeholder="Причина..."
+                rows={2}
+                maxLength={120}
+                className="w-full px-2.5 py-2 text-[11px] font-mono-hud text-purple-100 bg-purple-900/40 border border-purple-700/50 rounded-lg resize-none outline-none focus:border-violet-500/60 placeholder:text-purple-800 leading-snug"
+              />
+              <div className="flex gap-2">
+                <button onClick={confirm} disabled={!reason.trim()}
+                  className="flex-1 btn-hud text-[10px] font-hud tracking-wider py-1.5 rounded-lg border border-violet-600/50 bg-violet-700/30 text-violet-200 hover:bg-violet-700/50 transition-all disabled:opacity-40">
+                  ПРИМЕНИТЬ
+                </button>
+                <button onClick={() => setStep("pick")}
+                  className="px-3 py-1.5 text-[10px] font-hud text-purple-700 hover:text-purple-400 transition-colors">
+                  ←
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -82,7 +140,7 @@ function Cell({ value, onSave, readOnly }: {
   };
 
   if (readOnly) return (
-    <div className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-500 select-text">{value || "—"}</div>
+    <div className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-500 truncate" title={value}>{value || "—"}</div>
   );
 
   return editing ? (
@@ -92,12 +150,13 @@ function Cell({ value, onSave, readOnly }: {
       onChange={e => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
-      rows={1}
+      rows={2}
       className="w-full px-2 py-1.5 text-[11px] font-mono-hud text-purple-100 bg-violet-900/30 border border-violet-600/50 rounded-md resize-none outline-none leading-tight"
     />
   ) : (
     <div
-      className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-200 cursor-text hover:bg-purple-900/20 rounded-md transition-colors min-h-[28px] leading-tight"
+      className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-200 cursor-text hover:bg-purple-900/20 rounded-md transition-colors min-h-[28px] leading-tight truncate"
+      title={value}
       onClick={() => setEditing(true)}
     >
       {value || <span className="text-purple-800">—</span>}
@@ -129,8 +188,7 @@ function ColHeader({ col, canEdit, onRename, onColorChange, onDelete }: {
   const bg = TABLE_COL_COLORS.find(c => c.value === col.color)?.bg ?? "bg-purple-900/30";
 
   return (
-    <div className={`relative flex items-center gap-1.5 px-3 py-2 ${bg} border-b border-r border-purple-800/30 min-w-[${col.width}px]`}
-      style={{ minWidth: col.width }}>
+    <div className={`relative flex items-center gap-1.5 px-3 py-2 ${bg} border-b border-r border-purple-800/30 w-full overflow-hidden`}>
       {editing ? (
         <input ref={ref} value={draft}
           onChange={e => setDraft(e.target.value)}
@@ -184,7 +242,7 @@ interface HudTableProps {
   canEditCells: boolean;    // лидер/куратор — редактирует ячейки
   canEditStructure: boolean;// куратор орг/адм — добавляет столбцы, меняет цвет
   onChange: (sheet: TableSheet) => void;
-  onPenaltyChange?: (nickname: string, type: "verbal" | "reprimand", count: number) => void;
+  onPenaltyChange?: (nickname: string, type: "verbal" | "reprimand", count: number, reason: string) => void;
 }
 
 export default function HudTable({ sheet, canEditCells, canEditStructure, onChange, onPenaltyChange }: HudTableProps) {
@@ -297,19 +355,25 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+      <div className="w-full">
+        <table className="w-full border-collapse table-fixed">
+          <colgroup>
+            <col style={{ width: "32px" }} />
+            {sheet.columns.map(col => (
+              <col key={col.id} />
+            ))}
+            {canEditCells && <col style={{ width: "32px" }} />}
+          </colgroup>
           <thead>
             <tr className="group">
-              {/* Row number */}
-              <th className="w-8 px-2 py-2 bg-purple-900/20 border-b border-r border-purple-800/30 text-[10px] font-mono-hud text-purple-800">#</th>
+              <th className="px-2 py-2 bg-purple-900/20 border-b border-r border-purple-800/30 text-[10px] font-mono-hud text-purple-800">#</th>
               {sheet.columns.map(col => (
-                <th key={col.id} className="group" style={{ minWidth: col.width }}>
+                <th key={col.id} className="group">
                   <ColHeader col={col} canEdit={canEditStructure}
                     onRename={renameCol} onColorChange={colorCol} onDelete={deleteCol} />
                 </th>
               ))}
-              {canEditCells && <th className="w-8 bg-purple-900/20 border-b border-purple-800/30" />}
+              {canEditCells && <th className="bg-purple-900/20 border-b border-purple-800/30" />}
             </tr>
           </thead>
           <tbody>
@@ -327,16 +391,16 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
                   {ri + 1}
                 </td>
                 {sheet.columns.map(col => (
-                  <td key={col.id} className="border-r border-purple-800/10 align-top" style={{ minWidth: col.width }}>
+                  <td key={col.id} className="border-r border-purple-800/10 align-middle overflow-hidden">
                     {AUTO_COLS.has(col.id) ? (
                       <PenaltyCell
                         value={row.cells[col.id] ?? "0"}
                         colId={col.id}
                         canEdit={canEditCells && !!onPenaltyChange}
-                        onSave={v => {
+                        onSave={(v, reason) => {
                           const nickname = row.cells[1] ?? "";
                           const type = col.id === COL_ID_VERBAL ? "verbal" : "reprimand";
-                          onPenaltyChange?.(nickname, type, parseInt(v) || 0);
+                          onPenaltyChange?.(nickname, type, parseInt(v) || 0, reason);
                         }}
                       />
                     ) : (
