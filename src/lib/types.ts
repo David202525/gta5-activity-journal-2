@@ -267,12 +267,7 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const MOCK_USERS: (Player & { token: string; password: string })[] = [
-  { id: 1, username: "BlackStar_IX",  password: "curator123",  token: "mock-token-1", rank: "IV",  title: "Командующий",       role: "curator",          status: "online", level: 87, xp: 8700, xpMax: 10000, reputation: 9850, onlineToday: 312, onlineWeek: 2140, warnings: 0, penalties: [], weekActivity: [285, 310, 190, 340, 270, 312, 433] },
-  { id: 2, username: "Nexus_Prime",   password: "admin123",    token: "mock-token-2", rank: "III", title: "Генерал",           role: "admin",            status: "online", level: 64, xp: 6400, xpMax: 7000,  reputation: 7200, onlineToday: 185, onlineWeek: 1340, warnings: 0, penalties: [], weekActivity: [145, 200, 185, 220, 185, 160, 245] },
-  { id: 3, username: "Shadow_Wolf",   password: "leader123",   token: "mock-token-3", rank: "II",  title: "Майор",             role: "leader",           status: "online", level: 42, xp: 4200, xpMax: 5000,  reputation: 4800, onlineToday: 220, onlineWeek: 1560, warnings: 0, penalties: [], weekActivity: [180, 240, 110, 260, 220, 330, 220] },
-  { id: 4, username: "Ghost_Rider",   password: "user123",     token: "mock-token-4", rank: "I",   title: "Сержант",           role: "user",             status: "online", level: 21, xp: 2100, xpMax: 3000,  reputation: 2300, onlineToday: 130, onlineWeek: 890,  warnings: 0, penalties: [], weekActivity: [90,  130,  45, 180,  95, 130, 220] },
-  { id: 5, username: "Curator_Admin", password: "curadmin123", token: "mock-token-5", rank: "III", title: "Куратор Адм.",      role: "curator_admin",    status: "online", level: 55, xp: 5500, xpMax: 7000,  reputation: 6100, onlineToday: 200, onlineWeek: 1200, warnings: 0, penalties: [], weekActivity: [150, 180, 120, 200, 170, 200, 180] },
-  { id: 6, username: "Curator_Frac",  password: "curfrac123",  token: "mock-token-6", rank: "III", title: "Куратор Фракций",   role: "curator_faction",  status: "online", level: 52, xp: 5200, xpMax: 7000,  reputation: 5800, onlineToday: 190, onlineWeek: 1100, warnings: 0, penalties: [], weekActivity: [140, 170, 110, 190, 160, 190, 140] },
+  { id: 1, username: "BlackStar_IX", password: "curator123", token: "mock-token-1", rank: "IV", title: "Командующий", role: "curator", status: "offline", level: 87, xp: 8700, xpMax: 10000, reputation: 9850, onlineToday: 0, onlineWeek: 0, warnings: 0, penalties: [], weekActivity: [0, 0, 0, 0, 0, 0, 0] },
 ];
 
 export function formatTime(minutes: number): string {

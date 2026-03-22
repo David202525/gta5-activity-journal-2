@@ -8,10 +8,31 @@ import {
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
 } from "@/lib/types";
 
+const SESSION_KEY = "hud_session";
+const SESSION_TTL = 15 * 60 * 1000; // 15 минут
+
+function loadSession(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const { user, savedAt } = JSON.parse(raw) as { user: AuthUser; savedAt: number };
+    if (Date.now() - savedAt > SESSION_TTL) { localStorage.removeItem(SESSION_KEY); return null; }
+    return user;
+  } catch { return null; }
+}
+
+function saveSession(user: AuthUser) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, savedAt: Date.now() }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 export default function Index() {
-  const [authUser, setAuthUser]               = useState<AuthUser | null>(null);
+  const [authUser, setAuthUser]               = useState<AuthUser | null>(() => loadSession());
   const [activeTab, setActiveTab]             = useState<Tab>("stats");
-  const [myStatus, setMyStatus]               = useState<Status>("online");
+  const [myStatus, setMyStatus]               = useState<Status>(() => loadSession()?.status as Status ?? "offline");
   const [players, setPlayers]                 = useState<Player[]>([]);
   const [orgs, setOrgs]                       = useState<Organization[]>(MOCK_ORGS);
   const [selectedOrgId, setSelectedOrgId]     = useState<number | null>(null);
@@ -64,9 +85,15 @@ export default function Index() {
   }, [authUser]);
 
   // ── Auth handlers ────────────────────────────────────────────
-  const handleLogin = (user: AuthUser) => { setAuthUser(user); setMyStatus(user.status as Status); };
+  const handleLogin = (user: AuthUser) => {
+    const withOffline = { ...user, status: "offline" as Status };
+    saveSession(withOffline);
+    setAuthUser(withOffline);
+    setMyStatus("offline");
+  };
   const handleLogout = () => {
     if (authUser) apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status: "offline" }).catch(() => {});
+    clearSession();
     setAuthUser(null); setPlayers([]); setActiveTab("stats"); setIsMock(false);
   };
 
@@ -74,6 +101,9 @@ export default function Index() {
   const handleStatusChange = async (status: Status) => {
     setMyStatus(status);
     if (!authUser) return;
+    const updated = { ...authUser, status };
+    setAuthUser(updated);
+    saveSession(updated);
     try { await apiPost(API_USERS, { action: "set_status", user_id: authUser.id, status }); }
     catch { /* мок */ }
   };
