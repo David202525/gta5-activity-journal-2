@@ -50,19 +50,28 @@ export default function Index() {
     setShowNotifications(true);
   };
 
-  // ── Загрузка игроков из localStorage ─────────────────────────
-  const fetchPlayers = () => {
-    setPlayers(dbGetPlayers());
+  // ── Загрузка игроков с сервера ───────────────────────────────
+  const fetchPlayers = async () => {
+    try {
+      const list = await apiGetPlayers();
+      setPlayers(list);
+    } catch { /* сервер недоступен */ }
   };
 
   useEffect(() => { if (authUser) fetchPlayers(); }, [authUser]);
+
+  // ── Опрос каждые 10 сек ───────────────────────────────────────
+  useEffect(() => {
+    if (!authUser) return;
+    const poll = setInterval(fetchPlayers, 10_000);
+    return () => clearInterval(poll);
+  }, [authUser]);
 
   // ── Heartbeat: каждую минуту прибавляем 1 мин онлайна ────────
   useEffect(() => {
     if (!authUser || myStatus !== "online") return;
     const tick = setInterval(() => {
-      dbAddOnlineMinutes(authUser.id, 1);
-      fetchPlayers();
+      apiAddOnline(authUser.id, 1).catch(() => {});
     }, 60_000);
     return () => clearInterval(tick);
   }, [authUser, myStatus]);
@@ -71,7 +80,7 @@ export default function Index() {
   useEffect(() => {
     if (!authUser) return;
     const onUnload = () => {
-      dbSetStatus(authUser.id, "offline");
+      navigator.sendBeacon(`/api/users/${authUser.id}/status`, JSON.stringify({ status: "offline" }));
     };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
