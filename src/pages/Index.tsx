@@ -247,6 +247,7 @@ export default function Index() {
           onNotify={addNotification}
           onOrgCreated={org => setOrgs(prev => [org, ...prev])}
           onRoleChange={handleRoleChange}
+          onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); fetchPlayers(); }}
           orgTable={orgTable}
           adminTable={adminTable}
           onOrgTableChange={setOrgTable}

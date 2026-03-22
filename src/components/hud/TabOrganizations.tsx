@@ -131,11 +131,12 @@ interface TabAdminPanelProps {
   totalOnlineToday: number;
   onFetchPlayers: () => void;
   onRoleChange?: (id: number, role: Role) => void;
+  onStatusChange?: (id: number, status: "online" | "afk" | "offline") => void;
 }
 
 export function TabAdminPanel({
   viewerRole, authUser, players, canSeeFullStats,
-  onlinePlayers, totalOnlineToday, onFetchPlayers, onRoleChange,
+  onlinePlayers, totalOnlineToday, onFetchPlayers, onRoleChange, onStatusChange,
 }: TabAdminPanelProps) {
   const [curatorTarget, setCuratorTarget] = useState<number | null>(null);
   const [subTarget, setSubTarget]         = useState<number | null>(null);
@@ -219,7 +220,47 @@ export function TabAdminPanel({
         </div>
       </div>
 
-      {/* Назначение ролей куратора */}
+      {/* Управление статусами администраторов — куратор и куратор_админ */}
+      {(isMainCurator || isCuratorAdmin) && (
+        <div className="hud-panel p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Icon name="Activity" size={13} className="text-emerald-400" />
+            <span className="font-hud text-xs tracking-widest text-purple-400/80">СТАТУСЫ АДМИНИСТРАЦИИ</span>
+          </div>
+          <div className="space-y-2">
+            {players.filter(p => p.role === "admin" || p.role === "curator_admin").map(player => (
+              <div key={player.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-900/10 border border-purple-800/20">
+                <StatusDot status={player.status} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-hud text-sm text-purple-100">{player.username}</div>
+                  <div className="text-[10px] text-purple-700 font-mono-hud">{formatTime(player.onlineToday)} сегодня</div>
+                </div>
+                <RoleBadge role={player.role} />
+                <div className="flex gap-1.5">
+                  {(["online", "afk", "offline"] as const).map(s => (
+                    <button key={s}
+                      onClick={() => onStatusChange?.(player.id, s)}
+                      className={`text-[9px] font-hud px-2 py-1 rounded-lg border transition-all ${
+                        player.status === s
+                          ? s === "online" ? "bg-emerald-900/40 border-emerald-600/50 text-emerald-300"
+                            : s === "afk"  ? "bg-amber-900/40 border-amber-600/50 text-amber-300"
+                            : "bg-zinc-900/40 border-zinc-600/50 text-zinc-300"
+                          : "border-purple-900/30 text-purple-800 hover:text-purple-400 hover:border-purple-700/40"
+                      }`}>
+                      {s === "online" ? "ОНЛ" : s === "afk" ? "АФК" : "ВЫШ"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {players.filter(p => p.role === "admin" || p.role === "curator_admin").length === 0 && (
+              <div className="text-xs font-mono-hud text-purple-800 text-center py-3">Нет администраторов</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Назначение прав куратора — только главный куратор */}
       {isMainCurator && (
         <div className="hud-panel p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -228,17 +269,60 @@ export function TabAdminPanel({
             <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">только главный куратор</span>
           </div>
 
-          <div className="space-y-2">
-            {adminPlayers.map(player => {
+          {/* Текущие кураторы */}
+          <div className="space-y-2 mb-4">
+            <div className="text-[10px] font-hud tracking-widest text-purple-700 mb-2">ТЕКУЩИЕ КУРАТОРЫ</div>
+            {players.filter(p => p.role === "curator_admin" || p.role === "curator_faction").map(player => {
+              const isEditing = curatorTarget === player.id;
+              return (
+                <div key={player.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-900/15 border border-purple-700/30">
+                  <StatusDot status={player.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-hud text-sm text-purple-100">{player.username}</div>
+                    <div className="text-[10px] text-purple-700 font-mono-hud">{formatTime(player.onlineToday)} сегодня</div>
+                  </div>
+                  <RoleBadge role={player.role} />
+                  {!isEditing ? (
+                    <button onClick={() => setCuratorTarget(player.id)}
+                      className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-violet-900/30 border border-violet-700/40 text-violet-400 rounded-lg hover:bg-violet-800/40 transition-all">
+                      ИЗМЕНИТЬ
+                    </button>
+                  ) : (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { role: "curator_admin"   as Role, label: "КУР. АДМИН",   cls: "text-violet-400 border-violet-700/50 bg-violet-900/25 hover:bg-violet-800/40" },
+                        { role: "curator_faction" as Role, label: "КУР. ФРАКЦИЙ", cls: "text-cyan-400 border-cyan-700/50 bg-cyan-900/25 hover:bg-cyan-800/40" },
+                        { role: "admin"           as Role, label: "СНЯТЬ ПРАВА",  cls: "text-zinc-500 border-zinc-700/40 bg-zinc-900/20 hover:bg-zinc-800/30" },
+                      ]).filter(b => b.role !== player.role).map(btn => (
+                        <button key={btn.role}
+                          onClick={() => { onRoleChange?.(player.id, btn.role); setCuratorTarget(null); }}
+                          className={`btn-hud text-[10px] font-hud tracking-wider px-2.5 py-1.5 rounded-lg border transition-all ${btn.cls}`}>
+                          {btn.label}
+                        </button>
+                      ))}
+                      <button onClick={() => setCuratorTarget(null)}
+                        className="btn-hud text-[10px] font-hud px-2 py-1.5 rounded-lg border border-purple-900/40 text-purple-700 hover:text-purple-400 transition-all">✕</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {players.filter(p => p.role === "curator_admin" || p.role === "curator_faction").length === 0 && (
+              <div className="text-xs font-mono-hud text-purple-800 text-center py-2">Кураторов пока нет</div>
+            )}
+          </div>
+
+          {/* Назначить нового куратора из администраторов */}
+          <div className="pt-3 border-t border-purple-900/30 space-y-2">
+            <div className="text-[10px] font-hud tracking-widest text-purple-700 mb-2">НАЗНАЧИТЬ КУРАТОРА</div>
+            {adminPlayers.filter(p => p.role === "admin").map(player => {
               const isEditing = curatorTarget === player.id;
               return (
                 <div key={player.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-purple-900/10 border border-purple-800/20">
                   <StatusDot status={player.status} />
                   <div className="flex-1 min-w-0">
                     <div className="font-hud text-sm text-purple-100">{player.username}</div>
-                    <div className="text-[10px] text-purple-700 font-mono-hud">
-                      {formatTime(player.onlineToday)} сегодня
-                    </div>
+                    <div className="text-[10px] text-purple-700 font-mono-hud">{formatTime(player.onlineToday)} сегодня</div>
                   </div>
                   <RoleBadge role={player.role} />
                   {!isEditing ? (
@@ -249,11 +333,8 @@ export function TabAdminPanel({
                   ) : (
                     <div className="flex gap-1.5 flex-wrap">
                       {([
-                        { role: "admin"           as Role, label: "АДМИН",         cls: "text-indigo-400 border-indigo-700/50 bg-indigo-900/25 hover:bg-indigo-800/40" },
                         { role: "curator_admin"   as Role, label: "КУР. АДМИН",   cls: "text-violet-400 border-violet-700/50 bg-violet-900/25 hover:bg-violet-800/40" },
-                        { role: "curator_faction" as Role, label: "КУР. ФРАКЦИЙ", cls: "text-cyan-400   border-cyan-700/50   bg-cyan-900/25   hover:bg-cyan-800/40" },
-                        { role: "leader"          as Role, label: "ЛИДЕР",         cls: "text-amber-400 border-amber-700/50 bg-amber-900/25 hover:bg-amber-800/40" },
-                        { role: "user"            as Role, label: "ИГРОК",         cls: "text-zinc-500  border-zinc-700/40   bg-zinc-900/20   hover:bg-zinc-800/30" },
+                        { role: "curator_faction" as Role, label: "КУР. ФРАКЦИЙ", cls: "text-cyan-400 border-cyan-700/50 bg-cyan-900/25 hover:bg-cyan-800/40" },
                       ]).map(btn => (
                         <button key={btn.role}
                           onClick={() => { onRoleChange?.(player.id, btn.role); setCuratorTarget(null); }}
@@ -262,30 +343,15 @@ export function TabAdminPanel({
                         </button>
                       ))}
                       <button onClick={() => setCuratorTarget(null)}
-                        className="btn-hud text-[10px] font-hud px-2 py-1.5 rounded-lg border border-purple-900/40 text-purple-700 hover:text-purple-400 transition-all">
-                        ✕
-                      </button>
+                        className="btn-hud text-[10px] font-hud px-2 py-1.5 rounded-lg border border-purple-900/40 text-purple-700 hover:text-purple-400 transition-all">✕</button>
                     </div>
                   )}
                 </div>
               );
             })}
-            {adminPlayers.length === 0 && (
-              <div className="text-xs font-mono-hud text-purple-800 text-center py-3">Администраторов нет</div>
+            {adminPlayers.filter(p => p.role === "admin").length === 0 && (
+              <div className="text-xs font-mono-hud text-purple-800 text-center py-2">Нет администраторов для назначения</div>
             )}
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-purple-900/30 space-y-1.5">
-            <div className="text-[10px] font-hud tracking-widest text-purple-800 mb-2">ЧТО МОГУТ ДЕЛАТЬ</div>
-            {[
-              { role: "curator_admin",   icon: "ShieldCheck", color: "text-violet-400", desc: "Следит за администрацией, может изменять имена администраторов" },
-              { role: "curator_faction", icon: "Building2",   color: "text-cyan-400",   desc: "Следит за фракциями, управляет организациями" },
-            ].map(item => (
-              <div key={item.role} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-purple-900/10">
-                <Icon name={item.icon} size={11} className={`${item.color} mt-0.5 flex-shrink-0`} />
-                <span className="text-[10px] font-mono-hud text-purple-600">{item.desc}</span>
-              </div>
-            ))}
           </div>
         </div>
       )}
