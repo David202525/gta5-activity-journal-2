@@ -80,23 +80,23 @@ export default function Index() {
   // ── Auth handlers ─────────────────────────────────────────────
   const handleLogin = (user: AuthUser) => {
     const withOffline = { ...user, status: "offline" as Status };
-    dbSetStatus(user.id, "offline");
+    apiSetStatus(user.id, "offline").catch(() => {});
     saveSession(withOffline);
     setAuthUser(withOffline);
     setMyStatus("offline");
   };
 
   const handleLogout = () => {
-    if (authUser) dbSetStatus(authUser.id, "offline");
+    if (authUser) apiSetStatus(authUser.id, "offline").catch(() => {});
     clearSession();
     setAuthUser(null); setPlayers([]); setActiveTab("stats");
   };
 
   // ── Смена статуса ─────────────────────────────────────────────
-  const handleStatusChange = (status: Status) => {
+  const handleStatusChange = async (status: Status) => {
     setMyStatus(status);
     if (!authUser) return;
-    dbSetStatus(authUser.id, status);
+    await apiSetStatus(authUser.id, status).catch(() => {});
     const updated = { ...authUser, status };
     setAuthUser(updated);
     saveSession(updated);
@@ -104,30 +104,28 @@ export default function Index() {
   };
 
   // ── Предупреждения ────────────────────────────────────────────
-  const handleAddWarning = (userId: number) => {
-    const all = dbGetPlayers();
-    const player = all.find(u => u.id === userId);
+  const handleAddWarning = async (userId: number) => {
+    const player = players.find(u => u.id === userId);
     if (!player) return;
-    dbEditPlayer(userId, { warnings: player.warnings + 1 });
+    await apiEditPlayer(userId, { warnings: player.warnings + 1 }).catch(() => {});
     fetchPlayers();
   };
 
-  const handleRemoveWarning = (userId: number) => {
-    const all = dbGetPlayers();
-    const player = all.find(u => u.id === userId);
+  const handleRemoveWarning = async (userId: number) => {
+    const player = players.find(u => u.id === userId);
     if (!player) return;
-    dbEditPlayer(userId, { warnings: Math.max(0, player.warnings - 1) });
+    await apiEditPlayer(userId, { warnings: Math.max(0, player.warnings - 1) }).catch(() => {});
     fetchPlayers();
   };
 
   // ── Редактирование игрока ─────────────────────────────────────
-  const handleEditPlayer = (userId: number, fields: { username?: string; rank?: string; title?: string }) => {
-    dbEditPlayer(userId, fields);
+  const handleEditPlayer = async (userId: number, fields: { username?: string; rank?: string; title?: string }) => {
+    await apiEditPlayer(userId, fields).catch(() => {});
     fetchPlayers();
   };
 
-  const handleUpdatePlayer = (id: number, fields: Partial<Player>) => {
-    dbEditPlayer(id, fields);
+  const handleUpdatePlayer = async (id: number, fields: Partial<Player>) => {
+    await apiEditPlayer(id, fields).catch(() => {});
     fetchPlayers();
   };
 
@@ -136,8 +134,8 @@ export default function Index() {
     setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o));
 
   // ── Смена роли ────────────────────────────────────────────────
-  const handleRoleChange = (userId: number, role: Role) => {
-    dbEditPlayer(userId, { role });
+  const handleRoleChange = async (userId: number, role: Role) => {
+    await apiEditPlayer(userId, { role }).catch(() => {});
     fetchPlayers();
   };
 
