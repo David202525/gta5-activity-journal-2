@@ -1,6 +1,6 @@
 import { Player, AuthUser } from "./types";
 
-const BASE = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+const BASE = `/api`;
 
 async function req<T>(method: string, path: string, body?: object): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
