@@ -293,9 +293,9 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
       </div>
 
       {/* ── Sheet ── */}
-      <div className="overflow-auto" style={{ maxHeight: 460 }}>
+      <div className="overflow-auto" style={{ maxHeight: 600 }}>
         <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left", width: `${10000 / zoom}%` }}>
-          <table className="border-collapse" style={{ tableLayout: "fixed", width: "max-content" }}>
+          <table className="border-collapse" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
             <thead className="sticky top-0 z-20">
               <tr style={{ height: HEADER_H }}>
                 {/* Corner cell */}

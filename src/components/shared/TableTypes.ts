@@ -16,9 +16,9 @@ export const COL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const colLetter = (i: number) =>
   i < 26 ? COL_LETTERS[i] : COL_LETTERS[Math.floor(i / 26) - 1] + COL_LETTERS[i % 26];
 
-export const DEFAULT_COL_W = 120;
-export const ROW_H = 24;
-export const HEADER_H = 24;
+export const DEFAULT_COL_W = 150;
+export const ROW_H = 28;
+export const HEADER_H = 28;
 
 export const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 72];
 

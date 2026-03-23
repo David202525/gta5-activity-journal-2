@@ -94,7 +94,7 @@ export default function TabTables({
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 animate-fade-in -mx-4 px-4 md:-mx-8 md:px-8">
       {canSeeOrg && (
         <div>
           <div className="flex items-center gap-2 mb-3">
