@@ -53,7 +53,7 @@ export function StatCard({ label, value, icon, sub, delay = 0 }: {
 export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: {
   player: Player; index: number; canEdit: boolean;
   viewerRole?: Role;
-  onAddWarning?: (id: number) => void;
+  onAddWarning?: (id: number, reason: string) => void;
   onRemoveWarning?: (id: number) => void;
   onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string }) => void;
   onRoleChange?: (id: number, role: Role) => void;
@@ -63,12 +63,15 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   const [editingRank, setEditingRank] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingRole, setEditingRole] = useState(false);
+  const [addingWarning, setAddingWarning] = useState(false);
+  const [warningReason, setWarningReason] = useState("");
   const [draftName, setDraftName] = useState(player.username);
   const [draftTitle, setDraftTitle] = useState(player.title);
   const [draftRank, setDraftRank] = useState(player.rank);
   const nameRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const rankRef = useRef<HTMLInputElement>(null);
+  const reasonRef = useRef<HTMLInputElement>(null);
 
   // Права: можно ли данному viewer редактировать этого player
   const canEditThis = canEdit && !!viewerRole && canEditTarget(viewerRole, player.role);
@@ -100,6 +103,7 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   useEffect(() => { if (editingUsername) nameRef.current?.focus(); }, [editingUsername]);
   useEffect(() => { if (editingTitle) titleRef.current?.focus(); }, [editingTitle]);
   useEffect(() => { if (editingRank) rankRef.current?.focus(); }, [editingRank]);
+  useEffect(() => { if (addingWarning) reasonRef.current?.focus(); }, [addingWarning]);
 
   const commitName = () => {
     const trimmed = draftName.trim();
@@ -259,16 +263,51 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
           {canEdit && (
             <div className="mt-4 pt-3 border-t border-purple-900/40 space-y-2.5">
               {/* Предупреждения */}
-              <div className="flex flex-wrap gap-2">
-                <button onClick={e => { e.stopPropagation(); onAddWarning?.(player.id); }}
-                  className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-500/10 border border-red-500/25 text-red-400 rounded-lg hover:bg-red-500/18 transition-all">
-                  + ПРЕДУПРЕЖДЕНИЕ
-                </button>
-                {player.warnings > 0 && (
-                  <button onClick={e => { e.stopPropagation(); onRemoveWarning?.(player.id); }}
-                    className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all">
-                    СНЯТЬ ПРЕДУПР.
-                  </button>
+              <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                {!addingWarning ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setAddingWarning(true)}
+                      className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-500/10 border border-red-500/25 text-red-400 rounded-lg hover:bg-red-500/18 transition-all">
+                      + ПРЕДУПРЕЖДЕНИЕ
+                    </button>
+                    {player.warnings > 0 && (
+                      <button onClick={() => onRemoveWarning?.(player.id)}
+                        className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-lg hover:bg-emerald-500/18 transition-all">
+                        СНЯТЬ ПРЕДУПР.
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="text-[10px] font-hud tracking-widest text-red-400/80">ПРИЧИНА ВЗЫСКАНИЯ</div>
+                    <div className="flex gap-2">
+                      <input
+                        ref={reasonRef}
+                        value={warningReason}
+                        onChange={e => setWarningReason(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && warningReason.trim()) {
+                            onAddWarning?.(player.id, warningReason.trim());
+                            setWarningReason(""); setAddingWarning(false);
+                          }
+                          if (e.key === "Escape") { setWarningReason(""); setAddingWarning(false); }
+                        }}
+                        placeholder="Укажите причину..."
+                        maxLength={120}
+                        className="flex-1 border border-red-800/40 text-purple-100 text-[11px] px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none placeholder:text-purple-900/50 bg-transparent focus:border-red-600/50 transition-all"
+                      />
+                      <button
+                        disabled={!warningReason.trim()}
+                        onClick={() => { onAddWarning?.(player.id, warningReason.trim()); setWarningReason(""); setAddingWarning(false); }}
+                        className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-500/15 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/25 transition-all disabled:opacity-40">
+                        ВЫДАТЬ
+                      </button>
+                      <button onClick={() => { setWarningReason(""); setAddingWarning(false); }}
+                        className="text-[10px] text-purple-800 hover:text-purple-400 px-1.5 transition-colors">
+                        ✕
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

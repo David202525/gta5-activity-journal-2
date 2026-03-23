@@ -26,7 +26,7 @@ interface TabContentProps {
   sorted: Player[];
   myRank: number;
   onFetchPlayers: () => void;
-  onAddWarning: (id: number) => void;
+  onAddWarning: (id: number, reason: string) => void;
   onRemoveWarning: (id: number) => void;
   onEditPlayer: (id: number, fields: { username?: string; rank?: string }) => void;
   onSetSelectedOrgId: (id: number | null) => void;

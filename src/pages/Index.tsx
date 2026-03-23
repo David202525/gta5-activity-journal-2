@@ -112,12 +112,12 @@ export default function Index() {
   };
 
   // ── Предупреждения / взыскания ────────────────────────────────
-  const handleAddWarning = async (userId: number) => {
+  const handleAddWarning = async (userId: number, reason: string) => {
     const player = players.find(u => u.id === userId);
     if (!player) return;
     const { newPenalties } = issuePenaltyToList(
       player.penalties,
-      "Выдано администрацией",
+      reason || "Без причины",
       authUser?.username ?? "Система",
     );
     await apiEditPlayer(userId, { warnings: player.warnings + 1, penalties: newPenalties }).catch(() => {});

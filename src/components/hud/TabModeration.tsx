@@ -40,7 +40,7 @@ interface TabUsersProps {
   viewerRole: Role;
   myOrg: Organization | null;
   onFetchPlayers: () => void;
-  onAddWarning: (id: number) => void;
+  onAddWarning: (id: number, reason: string) => void;
   onRemoveWarning: (id: number) => void;
   onEditPlayer: (id: number, fields: { username?: string; rank?: string }) => void;
   onRoleChange?: (id: number, role: Role) => void;

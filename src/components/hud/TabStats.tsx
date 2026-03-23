@@ -116,19 +116,31 @@ export default function TabStats({ authUser, myRank, isOnline }: TabStatsProps) 
         {/* История активных взысканий */}
         {hasPenalties && (
           <div className="mt-4 space-y-1.5">
-            {authUser.penalties.filter(p => p.isActive).map(p => (
-              <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-900/15 border border-purple-900/30">
-                <Icon name={p.type === "verbal" ? "MessageSquareWarning" : "AlertOctagon"} size={11}
-                  className={p.type === "verbal" ? "text-yellow-400" : "text-orange-400"} />
-                <span className="text-[10px] font-hud text-purple-500">
-                  {p.type === "verbal" ? "Уст. предупреждение" : "Выговор"}
-                </span>
-                {p.reason && p.reason !== "Выдано через таблицу" && (
-                  <span className="text-[10px] font-mono-hud text-purple-700 flex-1 truncate">— {p.reason}</span>
-                )}
-                <span className="text-[10px] font-mono-hud text-purple-900 ml-auto">{p.issuedAt}</span>
-              </div>
-            ))}
+            {authUser.penalties.filter(p => p.isActive).map(p => {
+              const dateStr = (() => {
+                try { return new Date(p.issuedAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }); }
+                catch { return p.issuedAt; }
+              })();
+              return (
+                <div key={p.id} className={`flex items-start gap-2 px-3 py-2.5 rounded-lg border ${
+                  p.type === "verbal" ? "bg-yellow-900/10 border-yellow-800/20" : "bg-orange-900/10 border-orange-800/20"
+                }`}>
+                  <Icon name={p.type === "verbal" ? "MessageSquareWarning" : "AlertOctagon"} size={12}
+                    className={`mt-0.5 flex-shrink-0 ${p.type === "verbal" ? "text-yellow-400" : "text-orange-400"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-hud tracking-wide ${p.type === "verbal" ? "text-yellow-400" : "text-orange-400"}`}>
+                        {p.type === "verbal" ? "УСТ. ПРЕДУПРЕЖДЕНИЕ" : "ВЫГОВОР"}
+                      </span>
+                      <span className="text-[10px] font-mono-hud text-purple-800">от {p.issuedBy} · {dateStr}</span>
+                    </div>
+                    {p.reason && (
+                      <div className="text-[11px] font-mono-hud text-purple-400 mt-0.5">{p.reason}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
