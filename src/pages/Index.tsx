@@ -168,8 +168,12 @@ export default function Index() {
     ? orgs.find(o => o.leaderId === authUser.id) ?? null
     : null;
 
-  const canSeeTables = canManageUsers || viewerRole === "curator_admin";
-  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator";
+  // curator        — главный куратор: всё
+  // curator_admin   — куратор администрации: только Таблицы(адм) + Панель, без Приказной и Организаций
+  // curator_faction — куратор фракций: Приказная + Организации + Таблицы(орг) + Панель
+  const canSeeTables  = viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "admin" || viewerRole === "leader" || viewerRole === "deputy";
+  const canSeeOrders  = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_faction";
+  const canSeeOrgs    = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "leader";
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
@@ -178,7 +182,7 @@ export default function Index() {
     { id: "moderation",    label: "Модерация",   icon: "Shield",     visible: canManageUsers },
     { id: "tables",        label: "Таблицы",     icon: "Table2",     visible: canSeeTables },
     { id: "orders",        label: "Приказная",   icon: "ScrollText", visible: canSeeOrders },
-    { id: "organizations", label: "Организации", icon: "Building2",  visible: viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "leader" },
+    { id: "organizations", label: "Организации", icon: "Building2",  visible: canSeeOrgs },
     { id: "admin_panel",   label: "Панель",      icon: "Settings",   visible: canAccessAdmin },
   ].filter(t => t.visible);
 
