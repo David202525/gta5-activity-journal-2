@@ -7,7 +7,7 @@ import OrgAddMember from "./OrgAddMember";
 import {
   Organization, OrgRank, Player, Role, Status, Penalty, Notification,
   PENALTY_LABELS,
-  isCuratorRole, statusChangePenaltyReason, issuePenaltyToList,
+  isCuratorRole, statusChangePenaltyReason, issuePenaltyToList, ROLE_LABELS,
 } from "@/lib/types";
 
 // ─── ORG DETAIL ───────────────────────────────────────────────
@@ -31,9 +31,10 @@ export default function OrgDetail({
 
   const isCuratorOrAdmin = isCuratorRole(viewerRole) || viewerRole === "admin";
   const isLeaderOfOrg    = viewerRole === "leader" && org.leaderId === viewerId;
-  const canManage        = isCuratorOrAdmin || isLeaderOfOrg;
+  const isDeputyOfOrg    = viewerRole === "deputy" && org.memberIds.includes(viewerId);
+  const canManage        = isCuratorOrAdmin || isLeaderOfOrg || isDeputyOfOrg;
 
-  if (viewerRole === "leader" && !isLeaderOfOrg) {
+  if ((viewerRole === "leader" && !isLeaderOfOrg) || (viewerRole === "deputy" && !isDeputyOfOrg)) {
     return (
       <div className="hud-panel p-10 text-center space-y-3">
         <Icon name="ShieldOff" size={32} className="text-red-800 mx-auto" />
@@ -169,6 +170,39 @@ export default function OrgDetail({
           onSearchChange={setAddSearch}
           onAdd={handleAdd}
         />
+      )}
+
+      {/* Закрепить куратора — только главный куратор */}
+      {viewerRole === "curator" && (
+        <div className="hud-panel p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon name="ShieldCheck" size={13} className="text-pink-400" />
+            <span className="font-hud text-xs tracking-widest text-purple-400/80">КУРАТОР ОРГАНИЗАЦИИ</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => onUpdate({ ...org, curatorId: null })}
+              className={`btn-hud text-[10px] font-hud px-3 py-1.5 rounded-lg border transition-all ${
+                !org.curatorId ? "bg-purple-900/40 border-purple-600/50 text-purple-200" : "border-purple-900/30 text-purple-700 hover:text-purple-400"
+              }`}>
+              Не назначен
+            </button>
+            {allPlayers.filter(p => p.role === "curator_faction").map(p => (
+              <button key={p.id}
+                onClick={() => onUpdate({ ...org, curatorId: p.id })}
+                className={`btn-hud text-[10px] font-hud px-3 py-1.5 rounded-lg border transition-all ${
+                  org.curatorId === p.id ? "bg-cyan-900/40 border-cyan-600/50 text-cyan-200" : "border-purple-900/30 text-purple-700 hover:text-purple-400"
+                }`}>
+                {p.username}
+              </button>
+            ))}
+          </div>
+          {org.curatorId && (
+            <div className="text-[10px] font-mono-hud text-cyan-600 mt-2">
+              Закреплён: {allPlayers.find(p => p.id === org.curatorId)?.username ?? "—"}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

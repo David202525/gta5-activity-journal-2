@@ -13,6 +13,7 @@ interface TabContentProps {
   myStatus?: string;
   viewerRole: Role;
   players: Player[];
+  allPlayers?: Player[];  // все игроки без фильтра (для организаций)
   orgs: Organization[];
   selectedOrgId: number | null;
   loadingPlayers: boolean;
@@ -46,7 +47,7 @@ interface TabContentProps {
 }
 
 export default function TabContent({
-  activeTab, authUser, myStatus, viewerRole, players, orgs,
+  activeTab, authUser, myStatus, viewerRole, players, allPlayers, orgs,
   selectedOrgId, loadingPlayers, myOrg,
   canManageUsers, canAccessAdmin, canSeeFullStats,
   onlinePlayers, afkPlayers, totalOnlineToday,
@@ -97,10 +98,11 @@ export default function TabContent({
       />
     );
 
-  if (activeTab === "organizations" && (viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "leader"))
+  if (activeTab === "organizations" && (viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy"))
     return (
       <TabOrganizations
-        viewerRole={viewerRole} authUser={authUser} players={players}
+        viewerRole={viewerRole} authUser={authUser}
+        players={allPlayers ?? players}
         orgs={orgs} selectedOrgId={selectedOrgId} myOrg={myOrg}
         onSetSelectedOrgId={onSetSelectedOrgId} onUpdateOrg={onUpdateOrg}
         onUpdatePlayer={onUpdatePlayer} onNotify={onNotify} onOrgCreated={onOrgCreated}

@@ -115,6 +115,7 @@ export interface Organization {
   description: string;
   leaderId: number | null;
   leaderName: string;
+  curatorId?: number | null;       // куратор закреплённый за организацией
   memberIds: number[];
   orgRanks: OrgRank[];             // кастомные ранги организации
   memberRanks: Record<number, number>; // playerId → orgRankId

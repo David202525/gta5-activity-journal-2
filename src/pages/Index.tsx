@@ -189,7 +189,7 @@ export default function Index() {
   // curator_faction — куратор фракций: Приказная + Организации + Таблицы(орг) + Панель
   const canSeeTables  = viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "admin" || viewerRole === "leader" || viewerRole === "deputy";
   const canSeeOrders  = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_faction";
-  const canSeeOrgs    = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "leader";
+  const canSeeOrgs    = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy";
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
@@ -266,6 +266,7 @@ export default function Index() {
           myStatus={myStatus}
           viewerRole={viewerRole}
           players={visiblePlayers}
+          allPlayers={players}
           orgs={orgs}
           selectedOrgId={selectedOrgId}
           loadingPlayers={false}
