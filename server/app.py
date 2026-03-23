@@ -532,7 +532,8 @@ def vk_webhook():
         del pending[str(vk_id)]
         write_pending(pending)
 
-        vk_send(peer_id,
+        # Отвечаем в личку пользователю
+        vk_send(vk_id,
             f"✅ Готово! Ты — {target['username']} [{target.get('title','')}], Ранг {target.get('rank','')}.\n"
             f"Теперь используй кнопки для смены статуса:",
             KEYBOARD_STATUS)
@@ -550,16 +551,13 @@ def vk_webhook():
         linked = any(u.get("vk_id") == vk_id for u in db["users"])
         in_pending = str(vk_id) in pending
         if linked:
-            # Удаляем постороннее сообщение и напоминаем про кнопки
             vk_delete_message(peer_id, msg_id)
-            vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
+            vk_send(vk_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
         elif in_pending:
-            # Ждём ввода ника — не удаляем, это нужное сообщение
             pass
         else:
-            # Удаляем и показываем кнопку !кто
             vk_delete_message(peer_id, msg_id)
-            vk_send(peer_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
+            vk_send(vk_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
         return "ok", 200
 
     # Ищем игрока по vk_id
@@ -574,14 +572,15 @@ def vk_webhook():
     # Меняем статус
     do_set_status(player["id"], cmd)
 
-    # Список онлайн — фильтруем по роли игрока
+    # Список онлайн — фильтруем по роли игрока (только фракция для user/leader/deputy)
     viewer_role  = player.get("role", "user")
     online_lines = get_online_list(viewer_role)
     reply = (
         f"⚠️ {player['username']} {STATUS_LABELS[cmd]}.\n"
         f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")
     )
-    vk_send(peer_id, reply, KEYBOARD_STATUS)
+    # Отправляем ТОЛЬКО в личку пользователю (его vk_id), не в беседу
+    vk_send(player["vk_id"], reply, KEYBOARD_STATUS)
     return "ok", 200
 
 

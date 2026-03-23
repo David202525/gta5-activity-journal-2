@@ -189,6 +189,7 @@ export default function OrgDetail({
         members={members}
         viewerRole={viewerRole}
         onBack={onBack}
+        onUpdate={canManage ? onUpdate : undefined}
       />
 
       <OrgRanksPanel
