@@ -82,7 +82,7 @@ export default function Index() {
   // ── Опрос каждые 10 сек ───────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
-    const poll = setInterval(() => { fetchPlayers(); fetchOrders(); }, 10_000);
+    const poll = setInterval(() => { fetchPlayers(); fetchOrders(); }, 4_000);
     return () => clearInterval(poll);
   }, [authUser]);
 
@@ -230,7 +230,7 @@ export default function Index() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         <ProfileCard
-          authUser={authUser}
+          authUser={{ ...authUser, ...(players.find(p => p.id === authUser.id) ?? {}) } as AuthUser}
           viewerRole={viewerRole}
           myStatus={myStatus}
           onStatusChange={handleStatusChange}
