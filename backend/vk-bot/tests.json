@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "VK confirmation",
+      "method": "POST",
+      "path": "/",
+      "body": {"type": "confirmation"},
+      "expectedStatus": 200
+    }
+  ]
+}

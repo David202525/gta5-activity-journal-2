@@ -102,7 +102,7 @@ def handler(event: dict, context) -> dict:
             user_id = body.get('user_id')
             fields = body.get('fields', {})
             allowed_text = ('username', 'rank', 'title', 'role')
-            allowed_int  = ('warnings',)
+            allowed_int  = ('warnings', 'vk_id')
             allowed_json = ('penalties',)
 
             set_parts = []
