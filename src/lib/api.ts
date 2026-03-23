@@ -68,3 +68,31 @@ export async function apiAddOrder(order: Order): Promise<void> {
 export async function apiDeleteOrder(id: number): Promise<void> {
   await req("DELETE", `/orders/${id}`);
 }
+
+// ── Organizations ─────────────────────────────────────────────
+export async function apiGetOrgs(): Promise<import("./types").Organization[]> {
+  const data = await req<{ orgs: import("./types").Organization[] }>("GET", "/orgs");
+  return data.orgs;
+}
+
+export async function apiCreateOrg(org: Partial<import("./types").Organization>): Promise<import("./types").Organization> {
+  const data = await req<{ org: import("./types").Organization }>("POST", "/orgs", org);
+  return data.org;
+}
+
+export async function apiUpdateOrg(id: number, fields: Partial<import("./types").Organization>): Promise<void> {
+  await req("PATCH", `/orgs/${id}`, fields);
+}
+
+export async function apiDeleteOrg(id: number): Promise<void> {
+  await req("DELETE", `/orgs/${id}`);
+}
+
+// ── Tables ────────────────────────────────────────────────────
+export async function apiGetTables(): Promise<{ org: import("./types").TableSheet | null; admin: import("./types").TableSheet | null }> {
+  return req("GET", "/tables");
+}
+
+export async function apiUpdateTable(scope: "org" | "admin", table: import("./types").TableSheet): Promise<void> {
+  await req("PATCH", `/tables/${scope}`, table);
+}

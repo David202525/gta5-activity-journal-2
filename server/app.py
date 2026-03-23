@@ -9,6 +9,8 @@ CORS(app)
 DATA_FILE    = "/opt/hud_data/db.json"
 ORDERS_FILE  = "/opt/hud_data/orders.json"
 PENDING_FILE = "/opt/hud_data/pending_bind.json"
+ORGS_FILE    = "/opt/hud_data/orgs.json"
+TABLES_FILE  = "/opt/hud_data/tables.json"
 
 VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
 VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "")
@@ -51,6 +53,28 @@ def write_orders(orders):
 
 def public_user(u):
     return {k: v for k, v in u.items() if k != "password"}
+
+def read_orgs():
+    if not os.path.exists(ORGS_FILE):
+        return []
+    with open(ORGS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def write_orgs(orgs):
+    os.makedirs(os.path.dirname(ORGS_FILE), exist_ok=True)
+    with open(ORGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(orgs, f, ensure_ascii=False, indent=2)
+
+def read_tables():
+    if not os.path.exists(TABLES_FILE):
+        return {"org": None, "admin": None}
+    with open(TABLES_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def write_tables(tables):
+    os.makedirs(os.path.dirname(TABLES_FILE), exist_ok=True)
+    with open(TABLES_FILE, "w", encoding="utf-8") as f:
+        json.dump(tables, f, ensure_ascii=False, indent=2)
 
 # ── Users ─────────────────────────────────────────────────────
 
@@ -167,6 +191,58 @@ def delete_user(user_id):
     db = read_db()
     db["users"] = [u for u in db["users"] if u["id"] != user_id]
     write_db(db)
+    return jsonify({"ok": True})
+
+# ── Organizations ─────────────────────────────────────────────
+
+@app.route("/api/orgs", methods=["GET"])
+def get_orgs():
+    return jsonify({"orgs": read_orgs()})
+
+@app.route("/api/orgs", methods=["POST"])
+def create_org():
+    org = request.get_json() or {}
+    orgs = read_orgs()
+    new_id = max((o["id"] for o in orgs), default=0) + 1
+    org["id"] = new_id
+    if "memberIds"   not in org: org["memberIds"]   = []
+    if "orgRanks"    not in org: org["orgRanks"]    = []
+    if "memberRanks" not in org: org["memberRanks"] = {}
+    orgs.append(org)
+    write_orgs(orgs)
+    return jsonify({"ok": True, "org": org})
+
+@app.route("/api/orgs/<int:org_id>", methods=["PATCH"])
+def update_org(org_id):
+    body = request.get_json() or {}
+    orgs = read_orgs()
+    for i, o in enumerate(orgs):
+        if o["id"] == org_id:
+            orgs[i] = {**o, **body, "id": org_id}
+            break
+    write_orgs(orgs)
+    return jsonify({"ok": True})
+
+@app.route("/api/orgs/<int:org_id>", methods=["DELETE"])
+def delete_org(org_id):
+    orgs = [o for o in read_orgs() if o["id"] != org_id]
+    write_orgs(orgs)
+    return jsonify({"ok": True})
+
+# ── Tables ────────────────────────────────────────────────────
+
+@app.route("/api/tables", methods=["GET"])
+def get_tables():
+    return jsonify(read_tables())
+
+@app.route("/api/tables/<scope>", methods=["PATCH"])
+def update_table(scope):
+    if scope not in ("org", "admin"):
+        return jsonify({"error": "invalid scope"}), 400
+    body = request.get_json() or {}
+    tables = read_tables()
+    tables[scope] = body
+    write_tables(tables)
     return jsonify({"ok": True})
 
 # ── Notify VK on status change from site ─────────────────────

@@ -4,11 +4,16 @@ import AppHeader from "@/components/hud/AppHeader";
 import { ProfileCard, TabBar } from "@/components/hud/ProfileCard";
 import TabContent from "@/components/hud/TabContent";
 import {
-  MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
+  MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
   issuePenaltyToList,
 } from "@/lib/types";
-import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder, apiDeleteOrder, apiNotifyVkStatus } from "@/lib/api";
+import {
+  apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline,
+  apiGetOrders, apiAddOrder, apiDeleteOrder, apiNotifyVkStatus,
+  apiGetOrgs, apiCreateOrg, apiUpdateOrg,
+  apiGetTables, apiUpdateTable,
+} from "@/lib/api";
 
 // ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";
@@ -41,7 +46,7 @@ export default function Index() {
   useEffect(() => { authUserRef.current = authUser; }, [authUser]);
   useEffect(() => { myStatusRef.current = myStatus; }, [myStatus]);
   const [players, setPlayers]             = useState<Player[]>([]);
-  const [orgs, setOrgs]                   = useState<Organization[]>(MOCK_ORGS);
+  const [orgs, setOrgs]                   = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -77,13 +82,22 @@ export default function Index() {
 
   // ── Загрузка приказов с сервера ──────────────────────────────
   const fetchOrders = async () => {
-    try {
-      const list = await apiGetOrders();
-      setOrders(list);
-    } catch { /* сервер недоступен */ }
+    try { const list = await apiGetOrders(); setOrders(list); } catch (e) { /* offline */ }
   };
 
-  useEffect(() => { if (authUser) { fetchPlayers(); fetchOrders(); } }, [authUser]);
+  const fetchOrgs = async () => {
+    try { const list = await apiGetOrgs(); setOrgs(list); } catch (e) { /* offline */ }
+  };
+
+  const fetchTables = async () => {
+    try {
+      const t = await apiGetTables();
+      if (t.org)   setOrgTable(t.org);
+      if (t.admin) setAdminTable(t.admin);
+    } catch (e) { /* offline */ }
+  };
+
+  useEffect(() => { if (authUser) { fetchPlayers(); fetchOrders(); fetchOrgs(); fetchTables(); } }, [authUser]);
 
   // ── Опрос каждые 10 сек ───────────────────────────────────────
   useEffect(() => {
@@ -164,8 +178,17 @@ export default function Index() {
   };
 
   // ── Организации ───────────────────────────────────────────────
-  const handleUpdateOrg = (updated: Organization) =>
+  const handleUpdateOrg = async (updated: Organization) => {
     setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o));
+    await apiUpdateOrg(updated.id, updated).catch(() => {});
+  };
+
+  const handleOrgCreated = async (org: Organization) => {
+    try {
+      const created = await apiCreateOrg(org);
+      setOrgs(prev => [created, ...prev]);
+    } catch (e) { /* offline */ }
+  };
 
   // ── Смена роли ────────────────────────────────────────────────
   const handleRoleChange = async (userId: number, role: Role) => {
@@ -289,13 +312,13 @@ export default function Index() {
           onUpdateOrg={handleUpdateOrg}
           onUpdatePlayer={handleUpdatePlayer}
           onNotify={addNotification}
-          onOrgCreated={org => setOrgs(prev => [org, ...prev])}
+          onOrgCreated={handleOrgCreated}
           onRoleChange={handleRoleChange}
           onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); fetchPlayers(); }}
           orgTable={orgTable}
           adminTable={adminTable}
-          onOrgTableChange={setOrgTable}
-          onAdminTableChange={setAdminTable}
+          onOrgTableChange={async (t) => { setOrgTable(t); await apiUpdateTable("org", t).catch(() => {}); }}
+          onAdminTableChange={async (t) => { setAdminTable(t); await apiUpdateTable("admin", t).catch(() => {}); }}
           orders={orders}
           onAddOrder={async order => { await apiAddOrder(order).catch(() => {}); fetchOrders(); }}
           onDeleteOrder={async id => { await apiDeleteOrder(id).catch(() => {}); fetchOrders(); }}
