@@ -551,18 +551,18 @@ def vk_webhook():
         db = read_db()
         already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
         if already:
-            vk_send(vk_id,
-                f"✅ Ты уже привязан как {already['username']} [{already.get('title','')}].\nИспользуй кнопки для смены статуса.",
+            vk_send(peer_id,
+                f"✅ [id{vk_id}|{already['username']}] уже привязан [{already.get('title','')}].\nИспользуй кнопки для смены статуса.",
                 KEYBOARD_STATUS)
             return "ok", 200
 
         # Запоминаем что этот vk_id ждёт ввода ника
         pending = read_pending()
-        pending[str(vk_id)] = True
+        pending[str(vk_id)] = {"peer_id": peer_id}
         write_pending(pending)
 
-        vk_send(vk_id,
-            "✍️ Напиши свой ник с сайта (точно как он указан в журнале):",
+        vk_send(peer_id,
+            f"[id{vk_id}|Привет!] ✍️ Напиши свой ник с сайта (точно как он указан в журнале):",
             None)
         return "ok", 200
 
@@ -570,20 +570,22 @@ def vk_webhook():
     pending = read_pending()
     if str(vk_id) in pending:
         db = read_db()
+        saved = pending[str(vk_id)]
+        reply_peer = saved["peer_id"] if isinstance(saved, dict) else peer_id
 
         # Ищем по нику (без учёта регистра)
         target = next((u for u in db["users"]
                        if u["username"].lower() == raw_text.lower()), None)
 
         if not target:
-            vk_send(vk_id,
-                f"❌ Ник «{raw_text}» не найден в журнале. Проверь написание и попробуй снова:",
+            vk_send(reply_peer,
+                f"[id{vk_id}|❌] Ник «{raw_text}» не найден в журнале. Проверь написание и попробуй снова:",
                 None)
             return "ok", 200
 
         if target.get("vk_id"):
-            vk_send(vk_id,
-                f"❌ Аккаунт {target['username']} уже привязан к другому VK.",
+            vk_send(reply_peer,
+                f"[id{vk_id}|❌] Аккаунт {target['username']} уже привязан к другому VK.",
                 KEYBOARD_WHO)
             del pending[str(vk_id)]
             write_pending(pending)
@@ -600,10 +602,10 @@ def vk_webhook():
         del pending[str(vk_id)]
         write_pending(pending)
 
-        # Отвечаем в личку пользователю
-        vk_send(vk_id,
-            f"✅ Готово! Ты — {target['username']} [{target.get('title','')}], Ранг {target.get('rank','')}.\n"
-            f"Теперь используй кнопки для смены статуса:",
+        # Отвечаем в беседу
+        vk_send(reply_peer,
+            f"✅ [id{vk_id}|{target['username']}] привязан к журналу [{target.get('title','')}], Ранг {target.get('rank','')}.\n"
+            f"Используй кнопки для смены статуса:",
             KEYBOARD_STATUS)
         return "ok", 200
 
@@ -620,20 +622,20 @@ def vk_webhook():
         in_pending = str(vk_id) in pending
         if linked:
             vk_delete_message(peer_id, msg_id)
-            vk_send(vk_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
+            vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
         elif in_pending:
             pass
         else:
             vk_delete_message(peer_id, msg_id)
-            vk_send(vk_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
+            vk_send(peer_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
         return "ok", 200
 
     # Ищем игрока по vk_id
     db = read_db()
     player = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
     if not player:
-        vk_send(vk_id,
-            f"❌ Аккаунт не привязан. Нажми !кто для привязки.",
+        vk_send(peer_id,
+            f"[id{vk_id}|❌] Аккаунт не привязан. Напиши !кто для привязки.",
             KEYBOARD_WHO)
         return "ok", 200
 
@@ -645,7 +647,21 @@ def vk_webhook():
     player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
 
     # Отправляем в нужную беседу (фракционную или админскую)
-    broadcast_status(player2, cmd)
+    # Если беседа не настроена — отвечаем туда откуда пришло сообщение
+    settings = read_settings()
+    chat_faction = settings.get("chat_faction")
+    chat_admin   = settings.get("chat_admin")
+    role = player2.get("role", "user")
+    has_chat = (role in FACTION_ROLES_SET and chat_faction) or (role in ADMIN_ROLES_SET and chat_admin)
+
+    if has_chat:
+        broadcast_status(player2, cmd)
+    else:
+        status_text = STATUS_LABELS.get(cmd, cmd)
+        lines = get_online_list()
+        reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+        vk_send(peer_id, reply, KEYBOARD_STATUS)
+
     return "ok", 200
 
 

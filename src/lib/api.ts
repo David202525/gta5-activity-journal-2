@@ -97,3 +97,12 @@ export async function apiGetTables(): Promise<{ org: TableSheet | null; admin: T
 export async function apiUpdateTable(scope: "org" | "admin", table: TableSheet): Promise<void> {
   await req("PATCH", `/tables/${scope}`, table);
 }
+
+// ── Settings ───────────────────────────────────────────────────────────────
+export async function apiGetSettings(): Promise<{ chat_faction: number | null; chat_admin: number | null }> {
+  return await req("GET", "/settings");
+}
+
+export async function apiUpdateSettings(s: { chat_faction?: number | null; chat_admin?: number | null }): Promise<void> {
+  await req("PATCH", "/settings", s);
+}
