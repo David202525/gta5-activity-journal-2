@@ -42,7 +42,7 @@ def handler(event: dict, context) -> dict:
         conn = get_conn()
         cur = conn.cursor()
         cur.execute(
-            f"SELECT id, username, role, title, rank, level, xp, xp_max, reputation, online_today, online_week, warnings, status FROM {schema}.users WHERE username = %s AND password_hash = %s",
+            f"SELECT id, username, role, title, rank, level, xp, xp_max, reputation, online_today, online_week, warnings, status, org_id FROM {schema}.users WHERE username = %s AND password_hash = %s",
             (username, pw_hash)
         )
         row = cur.fetchone()
@@ -54,7 +54,7 @@ def handler(event: dict, context) -> dict:
 
         token = secrets.token_hex(32)
         cur.execute(
-            f"UPDATE {schema}.users SET status = 'online', last_seen = NOW() WHERE id = %s",
+            f"UPDATE {schema}.users SET status = 'online', last_seen = NOW(), session_start = NOW() WHERE id = %s",
             (row[0],)
         )
         conn.commit()
@@ -67,6 +67,7 @@ def handler(event: dict, context) -> dict:
             'xp': row[6], 'xpMax': row[7], 'reputation': row[8],
             'onlineToday': row[9], 'onlineWeek': row[10],
             'warnings': row[11], 'status': row[12],
+            'orgId': row[13],
             'token': token,
         }
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'user': user})}

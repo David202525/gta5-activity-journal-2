@@ -33,7 +33,7 @@ export function TabOrganizations({
     if (viewerRole === "curator") return orgs;
     if (viewerRole === "curator_faction") return orgs.filter(o => o.curatorId === authUser.id);
     if (viewerRole === "leader") return myOrg ? [myOrg] : [];
-    if (viewerRole === "deputy") return orgs.filter(o => o.memberIds.includes(authUser.id));
+    if (viewerRole === "deputy" || viewerRole === "user") return myOrg ? [myOrg] : orgs.filter(o => o.memberIds.includes(authUser.id));
     return orgs;
   })();
 

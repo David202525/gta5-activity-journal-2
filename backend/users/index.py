@@ -35,6 +35,7 @@ def row_to_user(r):
         'warnings': r[11], 'status': r[12],
         'penalties': penalties,
         'weekActivity': week_activity,
+        'orgId': r[15],
     }
 
 def handler(event: dict, context) -> dict:
@@ -49,7 +50,7 @@ def handler(event: dict, context) -> dict:
         cur = conn.cursor()
         cur.execute(
             f"SELECT id, username, role, title, rank, level, xp, xp_max, reputation, "
-            f"online_today, online_week, warnings, status, penalties, week_activity "
+            f"online_today, online_week, warnings, status, penalties, week_activity, org_id "
             f"FROM {SCHEMA}.users ORDER BY reputation DESC"
         )
         rows = cur.fetchall()
@@ -102,7 +103,7 @@ def handler(event: dict, context) -> dict:
             user_id = body.get('user_id')
             fields = body.get('fields', {})
             allowed_text = ('username', 'rank', 'title', 'role')
-            allowed_int  = ('warnings', 'vk_id')
+            allowed_int  = ('warnings', 'vk_id', 'org_id')
             allowed_json = ('penalties',)
 
             set_parts = []

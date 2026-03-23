@@ -81,13 +81,26 @@ export default function OrgDetail({
   const isLeaderOfOrg    = viewerRole === "leader" && org.leaderId === viewerId;
   const isDeputyOfOrg    = viewerRole === "deputy" && org.memberIds.includes(viewerId);
   const canManage        = isCuratorOrAdmin || isLeaderOfOrg || isDeputyOfOrg;
+  // user — только чтение, без управления
+
+  const isOrgMember = viewerRole === "user" && org.memberIds.includes(viewerId);
 
   if ((viewerRole === "leader" && !isLeaderOfOrg) || (viewerRole === "deputy" && !isDeputyOfOrg)) {
     return (
       <div className="hud-panel p-10 text-center space-y-3">
         <Icon name="ShieldOff" size={32} className="text-red-800 mx-auto" />
         <div className="font-hud text-sm text-red-700">Доступ запрещён</div>
-        <div className="font-mono-hud text-xs text-purple-900">Вы не являетесь лидером этой организации</div>
+        <div className="font-mono-hud text-xs text-purple-900">Вы не являетесь членом этой организации</div>
+      </div>
+    );
+  }
+
+  if (viewerRole === "user" && !isOrgMember) {
+    return (
+      <div className="hud-panel p-10 text-center space-y-3">
+        <Icon name="ShieldOff" size={32} className="text-red-800 mx-auto" />
+        <div className="font-hud text-sm text-red-700">Доступ запрещён</div>
+        <div className="font-mono-hud text-xs text-purple-900">Вы не состоите в этой организации</div>
       </div>
     );
   }

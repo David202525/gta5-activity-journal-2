@@ -177,8 +177,19 @@ export default function Index() {
 
   // ── Организации ───────────────────────────────────────────────
   const handleUpdateOrg = async (updated: Organization) => {
-    setOrgs(prev => prev.map(o => o.id === updated.id ? updated : o));
+    const prev = orgs.find(o => o.id === updated.id);
+    setOrgs(prevOrgs => prevOrgs.map(o => o.id === updated.id ? updated : o));
     await apiUpdateOrg(updated.id, updated).catch(() => {});
+
+    // Синхронизируем org_id участников: добавленным ставим orgId, удалённым сбрасываем
+    if (prev) {
+      const added   = updated.memberIds.filter(id => !prev.memberIds.includes(id));
+      const removed = prev.memberIds.filter(id => !updated.memberIds.includes(id));
+      await Promise.all([
+        ...added.map(id => apiEditPlayer(id, { orgId: updated.id } as Partial<Player>).catch(() => {})),
+        ...removed.map(id => apiEditPlayer(id, { orgId: null } as Partial<Player>).catch(() => {})),
+      ]);
+    }
   };
 
   const handleOrgCreated = async (org: Organization) => {
@@ -208,16 +219,23 @@ export default function Index() {
   const canManageUsers  = viewerRole === "admin" || isCuratorRole(viewerRole) || viewerRole === "leader" || viewerRole === "deputy";
   const canSeeFullStats = isCuratorRole(viewerRole);
 
-  const myOrg = viewerRole === "leader"
-    ? orgs.find(o => o.leaderId === authUser.id) ?? null
-    : null;
+  // Ищем организацию текущего пользователя: по orgId из профиля, leaderId, или по членству
+  const freshMe = players.find(p => p.id === authUser.id);
+  const myOrgId = freshMe?.orgId ?? authUser.orgId;
+  const myOrg = orgs.find(o =>
+    (myOrgId && o.id === myOrgId) ||
+    o.leaderId === authUser.id ||
+    o.memberIds.includes(authUser.id)
+  ) ?? null;
 
   // curator        — главный куратор: всё
   // curator_admin   — куратор администрации: только Таблицы(адм) + Панель, без Приказной и Организаций
   // curator_faction — куратор фракций: Приказная + Организации + Таблицы(орг) + Панель
   const canSeeTables  = viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "admin" || viewerRole === "leader" || viewerRole === "deputy";
-  const canSeeOrders  = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_faction";
-  const canSeeOrgs    = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy";
+  // user в организации видит Приказную и Организации
+  const isOrgMember   = viewerRole === "user" && !!myOrg;
+  const canSeeOrders  = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_faction" || isOrgMember;
+  const canSeeOrgs    = viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy" || isOrgMember;
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
@@ -240,8 +258,12 @@ export default function Index() {
     if (viewerRole === "curator_admin") return ADMIN_ROLES.includes(p.role);
     if (viewerRole === "curator_faction") return FACTION_ROLES.includes(p.role) || p.role === "curator_faction" || p.role === "curator";
     if (viewerRole === "admin") return ADMIN_ROLES.includes(p.role);
-    // leader, deputy, user — только фракционные
-    return FACTION_ROLES.includes(p.role);
+    // leader, deputy — все фракционные
+    if (viewerRole === "leader" || viewerRole === "deputy") return FACTION_ROLES.includes(p.role);
+    // user в организации — видит только участников своей организации
+    if (viewerRole === "user" && myOrg) return myOrg.memberIds.includes(p.id) || p.id === authUser.id;
+    // user без организации — только себя
+    return p.id === authUser.id;
   });
 
   const onlinePlayers    = visiblePlayers.filter(p => p.status === "online").length;

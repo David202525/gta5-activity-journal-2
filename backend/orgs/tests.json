@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Get orgs list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create org",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "create", "name": "Test Org2", "tag": "[T2]", "description": "Test"},
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

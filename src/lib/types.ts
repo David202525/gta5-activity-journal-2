@@ -238,6 +238,7 @@ export interface Player {
   warnings: number;
   penalties: Penalty[];         // история взысканий
   weekActivity?: number[];      // минуты за каждый день недели [Пн..Вс]
+  orgId?: number | null;        // id организации (если состоит)
 }
 
 export interface AuthUser extends Player { token: string; }
