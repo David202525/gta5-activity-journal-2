@@ -455,11 +455,11 @@ def vk_webhook():
             already = any(u.get("vk_id") == vk_id for u in db["users"])
             if already:
                 player = next(u for u in db["users"] if u.get("vk_id") == vk_id)
-                vk_send(peer_id,
+                vk_send(vk_id,
                     f"👋 С возвращением, {player['username']}! Используй кнопки:",
                     KEYBOARD_STATUS)
             else:
-                vk_send(peer_id,
+                vk_send(vk_id,
                     f"👋 Привет! Нажми кнопку ниже чтобы привязать аккаунт к журналу:",
                     KEYBOARD_WHO)
         return "ok", 200
@@ -483,7 +483,7 @@ def vk_webhook():
         db = read_db()
         already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
         if already:
-            vk_send(peer_id,
+            vk_send(vk_id,
                 f"✅ Ты уже привязан как {already['username']} [{already.get('title','')}].\nИспользуй кнопки для смены статуса.",
                 KEYBOARD_STATUS)
             return "ok", 200
@@ -493,7 +493,7 @@ def vk_webhook():
         pending[str(vk_id)] = True
         write_pending(pending)
 
-        vk_send(peer_id,
+        vk_send(vk_id,
             "✍️ Напиши свой ник с сайта (точно как он указан в журнале):",
             None)
         return "ok", 200
@@ -508,13 +508,13 @@ def vk_webhook():
                        if u["username"].lower() == raw_text.lower()), None)
 
         if not target:
-            vk_send(peer_id,
+            vk_send(vk_id,
                 f"❌ Ник «{raw_text}» не найден в журнале. Проверь написание и попробуй снова:",
                 None)
             return "ok", 200
 
         if target.get("vk_id"):
-            vk_send(peer_id,
+            vk_send(vk_id,
                 f"❌ Аккаунт {target['username']} уже привязан к другому VK.",
                 KEYBOARD_WHO)
             del pending[str(vk_id)]
@@ -564,7 +564,7 @@ def vk_webhook():
     db = read_db()
     player = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
     if not player:
-        vk_send(peer_id,
+        vk_send(vk_id,
             f"❌ Аккаунт не привязан. Нажми !кто для привязки.",
             KEYBOARD_WHO)
         return "ok", 200

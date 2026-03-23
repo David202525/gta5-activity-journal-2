@@ -139,8 +139,6 @@ export default function Index() {
     setAuthUser(updated);
     saveSession(updated);
     fetchPlayers();
-    // Уведомляем ВК (не блокируем если нет vk_id)
-    apiNotifyVkStatus(authUser.id, status).catch(() => {});
   };
 
   // ── Предупреждения / взыскания ────────────────────────────────
