@@ -331,7 +331,12 @@ def vk_webhook():
         return "ok", 200
 
     msg     = body.get("object", {}).get("message", {})
-    text    = msg.get("text", "").strip().lower()
+    raw_text = msg.get("text", "").strip()
+    # Убираем упоминание группы вида @club123456 в начале
+    import re
+    raw_text = re.sub(r'^\[club\d+\|[^\]]*\]\s*', '', raw_text).strip()
+    raw_text = re.sub(r'^@club\d+\s*', '', raw_text).strip()
+    text    = raw_text.lower()
     peer_id = msg.get("peer_id")
     vk_id   = msg.get("from_id")
 
@@ -362,11 +367,11 @@ def vk_webhook():
 
         # Ищем по нику (без учёта регистра)
         target = next((u for u in db["users"]
-                       if u["username"].lower() == text.lower()), None)
+                       if u["username"].lower() == raw_text.lower()), None)
 
         if not target:
             vk_send(peer_id,
-                f"❌ Ник «{text}» не найден в журнале. Проверь написание и попробуй снова:",
+                f"❌ Ник «{raw_text}» не найден в журнале. Проверь написание и попробуй снова:",
                 None)
             return "ok", 200
 
