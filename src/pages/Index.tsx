@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import LoginScreen from "@/components/LoginScreen";
+import VkBindScreen from "@/components/VkBindScreen";
 import AppHeader from "@/components/hud/AppHeader";
 import { ProfileCard, TabBar } from "@/components/hud/ProfileCard";
 import TabContent from "@/components/hud/TabContent";
@@ -213,6 +214,18 @@ export default function Index() {
 
   // ── Экран входа ───────────────────────────────────────────────
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
+
+  // ── Экран привязки VK (если vk_id не привязан) ───────────────
+  const needVkBind = !(authUser as AuthUser & { vk_id?: number | null }).vk_id;
+  if (needVkBind) {
+    return (
+      <VkBindScreen
+        authUser={authUser}
+        onBound={(updated) => { saveSession(updated); setAuthUser(updated); setMyStatus(updated.status as Status); }}
+        onLogout={handleLogout}
+      />
+    );
+  }
 
   // ── Производные данные ────────────────────────────────────────
   const viewerRole      = authUser.role as Role;

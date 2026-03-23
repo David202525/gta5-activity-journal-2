@@ -5,6 +5,21 @@ import {
   COL_ID_VERBAL, COL_ID_REPRIMAND,
 } from "@/lib/types";
 
+function exportTableCSV(sheet: TableSheet) {
+  const header = sheet.columns.map(c => `"${c.name}"`).join(";");
+  const rows = sheet.rows.map(row =>
+    sheet.columns.map(c => `"${(row.cells[c.id] ?? "").replace(/"/g, '""')}"`).join(";")
+  );
+  const csv = "\uFEFF" + [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${sheet.name}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface TabTablesProps {
   viewerRole: Role;
   players: Player[];
@@ -86,7 +101,14 @@ export default function TabTables({
             <Icon name="Building2" size={13} className="text-violet-400" />
             <span className="font-hud text-sm tracking-wider text-purple-400">ТАБЛИЦА ОРГАНИЗАЦИИ</span>
             {myOrg && <span className="rank-badge text-[9px] font-hud px-2 py-0.5 text-violet-300/70">{myOrg.name}</span>}
-            {!canEditOrgCells && (
+            {canEditOrgCells ? (
+              <button
+                onClick={() => exportTableCSV(orgTableSynced)}
+                className="ml-auto flex items-center gap-1.5 text-[10px] font-mono-hud text-purple-500 hover:text-purple-300 transition-colors px-2 py-1 rounded-lg hover:bg-purple-900/20"
+              >
+                <Icon name="Download" size={11} /> Excel
+              </button>
+            ) : (
               <span className="ml-auto flex items-center gap-1 text-[10px] font-mono-hud text-purple-800">
                 <Icon name="Eye" size={10} /> только просмотр
               </span>
@@ -107,7 +129,14 @@ export default function TabTables({
           <div className="flex items-center gap-2 mb-3">
             <Icon name="ShieldCheck" size={13} className="text-pink-400" />
             <span className="font-hud text-sm tracking-wider text-purple-400">ТАБЛИЦА АДМИНИСТРАЦИИ</span>
-            {!canEditAdminCells && (
+            {canEditAdminCells ? (
+              <button
+                onClick={() => exportTableCSV(adminTableSynced)}
+                className="ml-auto flex items-center gap-1.5 text-[10px] font-mono-hud text-purple-500 hover:text-purple-300 transition-colors px-2 py-1 rounded-lg hover:bg-purple-900/20"
+              >
+                <Icon name="Download" size={11} /> Excel
+              </button>
+            ) : (
               <span className="ml-auto flex items-center gap-1 text-[10px] font-mono-hud text-purple-800">
                 <Icon name="Eye" size={10} /> только просмотр
               </span>
