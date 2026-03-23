@@ -1,41 +1,46 @@
-import { Player, AuthUser, Order, API_AUTH, API_USERS, API_ORDERS } from "./types";
+import { Player, AuthUser, Order } from "./types";
+
+const USERS = "https://functions.poehali.dev/93e60fdd-bf88-468d-88c8-f312a5f61460";
+const AUTH  = "https://functions.poehali.dev/0faae4ff-54b8-40f4-988a-aa6bbebd01f0";
+const ORDERS = "https://functions.poehali.dev/ec65c93f-9552-4d66-a9f5-4949602f6cf4";
 
 async function call<T>(url: string, method: string, body?: object): Promise<T> {
   const res = await fetch(url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
+    headers: { "Content-Type": "application/json" },
+    body: body !== undefined || method !== "GET" ? JSON.stringify(body ?? {}) : undefined,
   });
-  const data = await res.json();
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
   if (!res.ok) throw new Error(data.error ?? "Ошибка сервера");
   return data as T;
 }
 
 export async function apiLogin(username: string, password: string): Promise<AuthUser> {
-  const data = await call<{ user: AuthUser }>(API_AUTH, "POST", { username, password });
+  const data = await call<{ user: AuthUser }>(AUTH, "POST", { username, password });
   return data.user;
 }
 
 export async function apiGetPlayers(): Promise<Player[]> {
-  const data = await call<{ users: Player[] }>(API_USERS, "GET");
+  const data = await call<{ users: Player[] }>(USERS, "GET");
   return data.users;
 }
 
 export async function apiSetStatus(userId: number, status: string): Promise<void> {
-  await call(API_USERS, "POST", { action: "set_status", user_id: userId, status });
+  await call(USERS, "POST", { action: "set_status", user_id: userId, status });
 }
 
 export async function apiAddOnline(userId: number, minutes: number): Promise<void> {
   const d = new Date();
   const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-  await call(API_USERS, "POST", { action: "add_online", user_id: userId, minutes, dayIdx });
+  await call(USERS, "POST", { action: "add_online", user_id: userId, minutes, dayIdx });
 }
 
 export async function apiAddPlayer(form: {
   username: string; password: string; role: string; title: string; rank: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    await call(API_USERS, "POST", { action: "add_user", ...form });
+    await call(USERS, "POST", { action: "add_user", ...form });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -43,22 +48,22 @@ export async function apiAddPlayer(form: {
 }
 
 export async function apiEditPlayer(userId: number, fields: Partial<Player & { password?: string }>): Promise<void> {
-  await call(API_USERS, "POST", { action: "edit_player", user_id: userId, fields });
+  await call(USERS, "POST", { action: "edit_player", user_id: userId, fields });
 }
 
 export async function apiDeletePlayer(userId: number): Promise<void> {
-  await call(API_USERS, "POST", { action: "delete_player", user_id: userId });
+  await call(USERS, "POST", { action: "delete_player", user_id: userId });
 }
 
 export async function apiGetOrders(): Promise<Order[]> {
-  const data = await call<{ orders: Order[] }>(API_ORDERS, "GET");
+  const data = await call<{ orders: Order[] }>(ORDERS, "GET");
   return data.orders;
 }
 
 export async function apiAddOrder(order: Order): Promise<void> {
-  await call(API_ORDERS, "POST", order);
+  await call(ORDERS, "POST", order);
 }
 
 export async function apiDeleteOrder(id: number): Promise<void> {
-  await call(`${API_ORDERS}/${id}`, "DELETE");
+  await call(`${ORDERS}/${id}`, "DELETE");
 }
