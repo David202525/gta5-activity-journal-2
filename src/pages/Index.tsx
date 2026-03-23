@@ -135,6 +135,7 @@ export default function Index() {
     setMyStatus(status);
     if (!authUser) return;
     await apiSetStatus(authUser.id, status).catch(() => {});
+    await apiNotifyVkStatus(authUser.id, status).catch(() => {});
     const updated = { ...authUser, status };
     setAuthUser(updated);
     saveSession(updated);

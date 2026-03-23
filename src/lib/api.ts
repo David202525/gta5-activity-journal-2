@@ -53,8 +53,8 @@ export async function apiDeletePlayer(userId: number): Promise<void> {
   await req("DELETE", `/users/${userId}`);
 }
 
-export async function apiNotifyVkStatus(_userId: number, _status: string): Promise<void> {
-  // VK уведомления — через vk-bot на сервере
+export async function apiNotifyVkStatus(userId: number, status: string): Promise<void> {
+  await req("POST", `/users/${userId}/notify-vk`, { status });
 }
 
 export async function apiGetOrders(): Promise<Order[]> {
