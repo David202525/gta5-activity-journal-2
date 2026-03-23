@@ -306,13 +306,32 @@ def write_pending(data):
     with open(PENDING_FILE, "w") as f:
         json.dump(data, f)
 
-def get_online_list():
+ADMIN_ROLES    = {"admin", "curator", "curator_admin", "curator_faction"}
+FACTION_ROLES  = {"user", "leader", "deputy"}
+
+def can_see_user(viewer_role, target_role):
+    """Определяет, видит ли viewer пользователя с target_role."""
+    if viewer_role == "curator":
+        return True  # куратор видит всех
+    if viewer_role == "curator_admin":
+        return target_role in {"admin", "curator", "curator_admin", "curator_faction"}
+    if viewer_role == "curator_faction":
+        return target_role in {"user", "leader", "deputy", "curator_faction", "curator"}
+    if viewer_role == "admin":
+        return target_role in {"admin", "curator", "curator_admin", "curator_faction"}
+    # leader, deputy, user — видят только свою фракционную группу
+    return target_role in FACTION_ROLES
+
+def get_online_list(viewer_role=None):
     db = read_db()
     lines = []
     for u in db["users"]:
-        if u["status"] in ("online", "afk"):
-            icon = "🟢" if u["status"] == "online" else "🟡"
-            lines.append(f"{icon} {u['username']} [{u.get('title','')}]")
+        if u["status"] not in ("online", "afk"):
+            continue
+        if viewer_role and not can_see_user(viewer_role, u.get("role", "user")):
+            continue
+        icon = "🟢" if u["status"] == "online" else "🟡"
+        lines.append(f"{icon} {u['username']} [{u.get('title','')}]")
     return lines
 
 
@@ -458,8 +477,9 @@ def vk_webhook():
     # Меняем статус
     do_set_status(player["id"], cmd)
 
-    # Список онлайн
-    online_lines = get_online_list()
+    # Список онлайн — фильтруем по роли игрока
+    viewer_role  = player.get("role", "user")
+    online_lines = get_online_list(viewer_role)
     reply = (
         f"⚠️ {player['username']} {STATUS_LABELS[cmd]}.\n"
         f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")

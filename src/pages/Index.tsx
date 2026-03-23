@@ -204,10 +204,22 @@ export default function Index() {
 
   const handleTabChange = (tab: Tab) => { setActiveTab(tab); setSelectedOrgId(null); };
 
-  const onlinePlayers    = players.filter(p => p.status === "online").length;
-  const afkPlayers       = players.filter(p => p.status === "afk").length;
-  const totalOnlineToday = players.reduce((s, p) => s + p.onlineToday, 0);
-  const sorted           = [...players].sort((a, b) => b.reputation - a.reputation);
+  // Фильтр видимости игроков по роли текущего пользователя
+  const ADMIN_ROLES   = ["admin", "curator", "curator_admin", "curator_faction"];
+  const FACTION_ROLES = ["user", "leader", "deputy"];
+  const visiblePlayers = players.filter(p => {
+    if (viewerRole === "curator") return true;
+    if (viewerRole === "curator_admin") return ADMIN_ROLES.includes(p.role);
+    if (viewerRole === "curator_faction") return FACTION_ROLES.includes(p.role) || p.role === "curator_faction" || p.role === "curator";
+    if (viewerRole === "admin") return ADMIN_ROLES.includes(p.role);
+    // leader, deputy, user — только фракционные
+    return FACTION_ROLES.includes(p.role);
+  });
+
+  const onlinePlayers    = visiblePlayers.filter(p => p.status === "online").length;
+  const afkPlayers       = visiblePlayers.filter(p => p.status === "afk").length;
+  const totalOnlineToday = visiblePlayers.reduce((s, p) => s + p.onlineToday, 0);
+  const sorted           = [...visiblePlayers].sort((a, b) => b.reputation - a.reputation);
   const myRank           = sorted.findIndex(p => p.id === authUser.id) + 1;
 
   return (
@@ -253,7 +265,7 @@ export default function Index() {
           authUser={authUser}
           myStatus={myStatus}
           viewerRole={viewerRole}
-          players={players}
+          players={visiblePlayers}
           orgs={orgs}
           selectedOrgId={selectedOrgId}
           loadingPlayers={false}
