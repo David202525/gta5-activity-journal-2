@@ -18,6 +18,7 @@ interface TabOrganizationsProps {
   myOrg: Organization | null;
   onSetSelectedOrgId: (id: number | null) => void;
   onUpdateOrg: (org: Organization) => void;
+  onDeleteOrg?: (id: number) => void;
   onUpdatePlayer: (id: number, fields: Partial<Player>) => void;
   onNotify: (note: Omit<Notification, "id" | "read">) => void;
   onOrgCreated: (org: Organization) => void;
@@ -25,7 +26,7 @@ interface TabOrganizationsProps {
 
 export function TabOrganizations({
   viewerRole, authUser, players, orgs, selectedOrgId, myOrg,
-  onSetSelectedOrgId, onUpdateOrg, onUpdatePlayer, onNotify, onOrgCreated,
+  onSetSelectedOrgId, onUpdateOrg, onDeleteOrg, onUpdatePlayer, onNotify, onOrgCreated,
 }: TabOrganizationsProps) {
 
   // Определяем доступные организации в зависимости от роли
@@ -51,6 +52,7 @@ export function TabOrganizations({
           viewerId={authUser.id}
           onBack={() => onSetSelectedOrgId(null)}
           onUpdate={onUpdateOrg}
+          onDelete={onDeleteOrg}
           onPlayerUpdate={onUpdatePlayer}
           onNotify={onNotify}
         />

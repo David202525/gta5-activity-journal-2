@@ -437,54 +437,37 @@ ADMIN_ROLES_SET   = {"admin", "curator", "curator_admin", "curator_faction"}
 
 def broadcast_status(player, cmd):
     """
-    Рассылаем уведомление о смене статуса в личку каждому кто должен это видеть.
-    Фракционные видят только фракционных.
-    Администрация видит только администрацию.
-    Куратор фракций видит фракционных.
-    Главный куратор видит всех.
+    Отправляем сообщение о статусе в нужную беседу.
+    Фракционные → беседа фракций (chat_faction).
+    Администрация → беседа администрации (chat_admin).
+    Главный куратор и куратор фракций видят фракционную беседу.
     """
-    db = read_db()
+    settings = read_settings()
+    chat_faction = settings.get("chat_faction")
+    chat_admin   = settings.get("chat_admin")
     role = player.get("role", "user")
     status_text = STATUS_LABELS.get(cmd, cmd)
 
-    # Кто отмечается — фракция или администрация?
     is_faction = role in FACTION_ROLES_SET
     is_admin   = role in ADMIN_ROLES_SET
 
-    # Список онлайн который увидит получатель — зависит от его роли
-    def make_reply(viewer_role):
-        lines = get_online_list(viewer_role)
-        return f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    if is_faction and chat_faction:
+        # Список онлайн — только фракционные
+        lines = get_online_list("leader")
+        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+        vk_send(chat_faction, reply, KEYBOARD_STATUS)
 
-    # Рассылаем каждому привязанному пользователю
-    for u in db["users"]:
-        recipient_vk = u.get("vk_id")
-        if not recipient_vk:
-            continue
-        if recipient_vk == player.get("vk_id"):
-            continue  # себе не отправляем
+    elif is_admin and chat_admin:
+        # Список онлайн — только администрация
+        lines = get_online_list("curator_admin")
+        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+        vk_send(chat_admin, reply, KEYBOARD_STATUS)
 
-        r = u.get("role", "user")
-
-        # Главный куратор видит всех
-        if r == "curator":
-            vk_send(recipient_vk, make_reply("curator"), KEYBOARD_STATUS)
-
-        # Куратор фракций видит только фракционных
-        elif r == "curator_faction" and is_faction:
-            vk_send(recipient_vk, make_reply("curator_faction"), KEYBOARD_STATUS)
-
-        # Куратор администрации видит только администрацию
-        elif r == "curator_admin" and is_admin:
-            vk_send(recipient_vk, make_reply("curator_admin"), KEYBOARD_STATUS)
-
-        # Администратор видит только администрацию
-        elif r == "admin" and is_admin:
-            vk_send(recipient_vk, make_reply("admin"), KEYBOARD_STATUS)
-
-        # Игрок/лидер/зам видит только фракционных
-        elif r in FACTION_ROLES_SET and is_faction:
-            vk_send(recipient_vk, make_reply("user"), KEYBOARD_STATUS)
+        # Главный куратор и куратор фракций тоже видят беседу фракций
+        if role == "curator" and chat_faction:
+            lines_f = get_online_list("leader")
+            reply_f = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines_f) if lines_f else "никого нет")
+            vk_send(chat_faction, reply_f, KEYBOARD_STATUS)
 
 ADMIN_ROLES    = {"admin", "curator", "curator_admin", "curator_faction"}
 FACTION_ROLES  = {"user", "leader", "deputy"}

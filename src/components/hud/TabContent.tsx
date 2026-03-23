@@ -35,6 +35,7 @@ interface TabContentProps {
   onUpdatePlayer: (id: number, fields: Partial<Player>) => void;
   onNotify: (note: Omit<Notification, "id" | "read">) => void;
   onOrgCreated: (org: Organization) => void;
+  onDeleteOrg?: (id: number) => void;
   onRoleChange?: (id: number, role: Role) => void;
   onStatusChange?: (id: number, status: "online" | "afk" | "offline") => void;
   orgTable: TableSheet;
@@ -54,7 +55,7 @@ export default function TabContent({
   sorted, myRank, onRoleChange,
   orgTable, adminTable, onOrgTableChange, onAdminTableChange,
   orders, onAddOrder, onDeleteOrder,
-  onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onStatusChange,
+  onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onStatusChange, onDeleteOrg,
   onSetSelectedOrgId, onUpdateOrg, onUpdatePlayer, onNotify, onOrgCreated,
 }: TabContentProps) {
 
@@ -105,6 +106,7 @@ export default function TabContent({
         players={allPlayers ?? players}
         orgs={orgs} selectedOrgId={selectedOrgId} myOrg={myOrg}
         onSetSelectedOrgId={onSetSelectedOrgId} onUpdateOrg={onUpdateOrg}
+        onDeleteOrg={onDeleteOrg}
         onUpdatePlayer={onUpdatePlayer} onNotify={onNotify} onOrgCreated={onOrgCreated}
       />
     );

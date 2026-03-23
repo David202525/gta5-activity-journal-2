@@ -11,7 +11,7 @@ import {
 import {
   apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline,
   apiGetOrders, apiAddOrder, apiDeleteOrder, apiNotifyVkStatus,
-  apiGetOrgs, apiCreateOrg, apiUpdateOrg,
+  apiGetOrgs, apiCreateOrg, apiUpdateOrg, apiDeleteOrg,
   apiGetTables, apiUpdateTable,
 } from "@/lib/api";
 
@@ -188,6 +188,11 @@ export default function Index() {
     } catch (e) { /* offline */ }
   };
 
+  const handleDeleteOrg = async (id: number) => {
+    setOrgs(prev => prev.filter(o => o.id !== id));
+    await apiDeleteOrg(id).catch(() => {});
+  };
+
   // ── Смена роли ────────────────────────────────────────────────
   const handleRoleChange = async (userId: number, role: Role) => {
     await apiEditPlayer(userId, { role }).catch(() => {});
@@ -311,6 +316,7 @@ export default function Index() {
           onUpdatePlayer={handleUpdatePlayer}
           onNotify={addNotification}
           onOrgCreated={handleOrgCreated}
+          onDeleteOrg={handleDeleteOrg}
           onRoleChange={handleRoleChange}
           onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); fetchPlayers(); }}
           orgTable={orgTable}

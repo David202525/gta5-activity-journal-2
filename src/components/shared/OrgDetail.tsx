@@ -66,13 +66,14 @@ interface OrgDetailProps {
   viewerId: number;
   onBack: () => void;
   onUpdate: (org: Organization) => void;
+  onDelete?: (id: number) => void;
   onPlayerUpdate?: (id: number, fields: Partial<Player>) => void;
   onNotify?: (note: Omit<Notification, "id" | "read">) => void;
 }
 
 export default function OrgDetail({
   org, allPlayers, viewerRole, viewerName, viewerId,
-  onBack, onUpdate, onPlayerUpdate, onNotify,
+  onBack, onUpdate, onDelete, onPlayerUpdate, onNotify,
 }: OrgDetailProps) {
   const [addSearch, setAddSearch] = useState("");
 
@@ -225,38 +226,87 @@ export default function OrgDetail({
         <NormEditor org={org} onUpdate={onUpdate} />
       )}
 
-      {/* Закрепить куратора — только главный куратор */}
+      {/* Закрепить куратора + удалить организацию — только главный куратор */}
       {viewerRole === "curator" && (
-        <div className="hud-panel p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Icon name="ShieldCheck" size={13} className="text-pink-400" />
-            <span className="font-hud text-xs tracking-widest text-purple-400/80">КУРАТОР ОРГАНИЗАЦИИ</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => onUpdate({ ...org, curatorId: null })}
-              className={`btn-hud text-[10px] font-hud px-3 py-1.5 rounded-lg border transition-all ${
-                !org.curatorId ? "bg-purple-900/40 border-purple-600/50 text-purple-200" : "border-purple-900/30 text-purple-700 hover:text-purple-400"
-              }`}>
-              Не назначен
-            </button>
-            {allPlayers.filter(p => p.role === "curator_faction").map(p => (
-              <button key={p.id}
-                onClick={() => onUpdate({ ...org, curatorId: p.id })}
+        <div className="hud-panel p-4 space-y-4">
+          {/* Куратор организации */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="ShieldCheck" size={13} className="text-pink-400" />
+              <span className="font-hud text-xs tracking-widest text-purple-400/80">КУРАТОР ОРГАНИЗАЦИИ</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => onUpdate({ ...org, curatorId: null })}
                 className={`btn-hud text-[10px] font-hud px-3 py-1.5 rounded-lg border transition-all ${
-                  org.curatorId === p.id ? "bg-cyan-900/40 border-cyan-600/50 text-cyan-200" : "border-purple-900/30 text-purple-700 hover:text-purple-400"
+                  !org.curatorId
+                    ? "bg-purple-900/40 border-purple-600/50 text-purple-200"
+                    : "border-purple-900/30 text-purple-700 hover:text-purple-400"
                 }`}>
-                {p.username}
+                Не назначен
               </button>
-            ))}
+              {allPlayers.filter(p => p.role === "curator_faction").length === 0 && (
+                <span className="text-[10px] font-mono-hud text-purple-800 self-center">
+                  Нет кураторов фракций — назначьте роль в Панели
+                </span>
+              )}
+              {allPlayers.filter(p => p.role === "curator_faction").map(p => (
+                <button key={p.id}
+                  onClick={() => onUpdate({ ...org, curatorId: p.id })}
+                  className={`btn-hud text-[10px] font-hud px-3 py-1.5 rounded-lg border transition-all ${
+                    org.curatorId === p.id
+                      ? "bg-cyan-900/40 border-cyan-600/50 text-cyan-200"
+                      : "border-cyan-900/30 text-cyan-800 hover:text-cyan-400 hover:border-cyan-700/40"
+                  }`}>
+                  {p.username}
+                </button>
+              ))}
+            </div>
+            {org.curatorId && (
+              <div className="text-[10px] font-mono-hud text-cyan-600 mt-2">
+                Закреплён: {allPlayers.find(p => p.id === org.curatorId)?.username ?? "—"}
+              </div>
+            )}
           </div>
-          {org.curatorId && (
-            <div className="text-[10px] font-mono-hud text-cyan-600 mt-2">
-              Закреплён: {allPlayers.find(p => p.id === org.curatorId)?.username ?? "—"}
+
+          {/* Удалить организацию */}
+          {onDelete && (
+            <div className="pt-3 border-t border-purple-900/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon name="Trash2" size={13} className="text-red-500" />
+                <span className="font-hud text-xs tracking-widest text-red-500/70">УДАЛИТЬ ОРГАНИЗАЦИЮ</span>
+              </div>
+              <DeleteOrgButton orgName={org.name} onConfirm={() => { onDelete(org.id); onBack(); }} />
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── DELETE CONFIRM ───────────────────────────────────────────
+function DeleteOrgButton({ orgName, onConfirm }: { orgName: string; onConfirm: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  if (!confirm) {
+    return (
+      <button onClick={() => setConfirm(true)}
+        className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-red-900/20 border border-red-700/30 text-red-400 rounded-lg hover:bg-red-800/30 transition-all">
+        УДАЛИТЬ «{orgName}»
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] font-mono-hud text-red-400">Уверен? Это нельзя отменить.</span>
+      <button onClick={onConfirm}
+        className="btn-hud text-[10px] font-hud px-3 py-1.5 bg-red-800/40 border border-red-600/50 text-red-300 rounded-lg hover:bg-red-700/50 transition-all">
+        ДА, УДАЛИТЬ
+      </button>
+      <button onClick={() => setConfirm(false)}
+        className="text-[10px] text-purple-700 hover:text-purple-400 transition-colors px-1">
+        отмена
+      </button>
     </div>
   );
 }
