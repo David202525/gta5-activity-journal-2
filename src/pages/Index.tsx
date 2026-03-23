@@ -56,6 +56,16 @@ export default function Index() {
     try {
       const list = await apiGetPlayers();
       setPlayers(list);
+      // Синхронизируем статус залогиненного пользователя с сервером
+      if (authUser) {
+        const fresh = list.find(p => p.id === authUser.id);
+        if (fresh && fresh.status !== myStatus) {
+          setMyStatus(fresh.status as Status);
+          const updated = { ...authUser, status: fresh.status as Status };
+          setAuthUser(updated);
+          saveSession(updated);
+        }
+      }
     } catch { /* сервер недоступен */ }
   };
 
