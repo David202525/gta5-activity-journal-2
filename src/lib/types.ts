@@ -1,5 +1,6 @@
 export const API_AUTH = "https://functions.poehali.dev/0faae4ff-54b8-40f4-988a-aa6bbebd01f0";
 export const API_USERS = "https://functions.poehali.dev/93e60fdd-bf88-468d-88c8-f312a5f61460";
+export const API_ORDERS = "https://functions.poehali.dev/ec65c93f-9552-4d66-a9f5-4949602f6cf4";
 
 export type Role = "user" | "leader" | "deputy" | "admin" | "curator" | "curator_admin" | "curator_faction";
 export type Status = "online" | "afk" | "offline";

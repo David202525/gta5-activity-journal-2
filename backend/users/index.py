@@ -114,7 +114,7 @@ def handler(event: dict, context) -> dict:
                     set_parts.append(f"{k} = %s")
                     vals.append(int(v))
                 elif k in allowed_json:
-                    set_parts.append(f"{k} = %s")
+                    set_parts.append(f"{k} = %s::jsonb")
                     vals.append(json.dumps(v))
 
             if not set_parts or not user_id:

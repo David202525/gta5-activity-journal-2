@@ -169,7 +169,7 @@ export default function Index() {
     : null;
 
   const canSeeTables = canManageUsers || viewerRole === "curator_admin";
-  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_admin";
+  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator";
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
