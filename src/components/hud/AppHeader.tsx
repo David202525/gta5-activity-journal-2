@@ -1,23 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { RoleBadge } from "@/components/shared/PlayerRow";
+import { OrderBubble } from "@/components/shared/OrderCards";
 import { AuthUser, Notification, Order, Player, Role, ROLE_LABELS, isCuratorRole } from "@/lib/types";
+import { validateOrderNumber, ORDER_PREFIXES, ORDER_PREFIX_LABELS } from "@/lib/orderUtils";
 
-// ─── Валидация номера приказа ─────────────────────────────────
-const ORDER_PREFIXES = ["ФР", "АД", "ОБ", "ОП", "ДС"];
-
-function validateOrderNumber(num: string, existingOrders: Order[]): { valid: boolean; error?: string } {
-  const trimmed = num.trim().toUpperCase();
-  const regex = /^\d{4}-[А-ЯЁA-Z]{2}-\d{2}$/;
-  if (!regex.test(trimmed)) return { valid: false, error: `Неверный формат. Ожидается: ГГГГ-ПЧ-НН (напр. 2026-ФР-01)` };
-  const [year, prefix] = trimmed.split("-");
-  if (parseInt(year) !== new Date().getFullYear()) return { valid: false, error: `Год должен быть ${new Date().getFullYear()}` };
-  if (!ORDER_PREFIXES.includes(prefix)) return { valid: false, error: `Неизвестный код «${prefix}». Допустимые: ${ORDER_PREFIXES.join(", ")}` };
-  if (existingOrders.find(o => o.number.toUpperCase() === trimmed)) return { valid: false, error: `Приказ ${trimmed} уже существует` };
-  return { valid: true };
-}
-
-// ─── Мини-форма приказа ───────────────────────────────────────
+// ─── Мини-форма приказа для хедера ───────────────────────────
 function OrderForm({ authUser, players, orders, onSubmit }: {
   authUser: AuthUser; players: Player[]; orders: Order[];
   onSubmit: (o: Order) => void;
@@ -76,52 +64,6 @@ function OrderForm({ authUser, players, orders, onSubmit }: {
   );
 }
 
-// ─── Карточка приказа в ленте ─────────────────────────────────
-function OrderBubble({ order, isMine, canSeeValidation }: {
-  order: Order; isMine: boolean; canSeeValidation: boolean;
-}) {
-  const time = new Date(order.issuedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  return (
-    <div className={`flex gap-2 ${isMine ? "flex-row-reverse" : ""}`}>
-      <div className="w-6 h-6 rounded-lg bg-violet-900/50 border border-violet-700/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Icon name="User" size={11} className="text-violet-400" />
-      </div>
-      <div className={`max-w-[85%] flex flex-col gap-0.5 ${isMine ? "items-end" : "items-start"}`}>
-        <div className={`flex items-center gap-1.5 text-[10px] font-mono-hud text-purple-700 ${isMine ? "flex-row-reverse" : ""}`}>
-          <span>{order.issuedBy}</span>
-          <span className="text-purple-900">·</span>
-          <span>{ROLE_LABELS[order.issuedByRole]}</span>
-          <span className="text-purple-900">·</span>
-          <span>{time}</span>
-        </div>
-        <div className={`rounded-xl border p-2.5 space-y-1.5 text-[11px] ${
-          isMine ? "bg-violet-900/25 border-violet-700/30 rounded-tr-sm" : "bg-purple-900/25 border-purple-800/30 rounded-tl-sm"
-        }`}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="rank-badge font-hud text-[10px] px-2 py-0.5 text-violet-200 tracking-widest">№ {order.number}</span>
-            {canSeeValidation && (
-              order.valid
-                ? <span className="text-[10px] font-mono-hud text-emerald-400 flex items-center gap-1"><Icon name="CheckCircle" size={9} />ок</span>
-                : <span className="text-[10px] font-mono-hud text-red-400 flex items-center gap-1"><Icon name="AlertCircle" size={9} />ошибка</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 text-purple-400">
-            <Icon name="User" size={10} className="text-purple-600 flex-shrink-0" />
-            <span className="font-mono-hud">{order.targetName}</span>
-          </div>
-          <div className="font-mono-hud text-purple-200 leading-snug">{order.comment}</div>
-          {canSeeValidation && !order.valid && order.validationError && (
-            <div className="flex items-start gap-1 pt-1.5 border-t border-red-800/30 text-red-400/80">
-              <Icon name="AlertTriangle" size={9} className="flex-shrink-0 mt-0.5" />
-              <span className="text-[10px] font-mono-hud">{order.validationError}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── APP HEADER ───────────────────────────────────────────────
 interface AppHeaderProps {
   authUser: AuthUser;
@@ -146,7 +88,7 @@ export default function AppHeader({
   notifications, showNotifications, onToggleNotifications, onMarkAllRead, onLogout,
   onNotify,
 }: AppHeaderProps) {
-  const unreadCount  = notifications.filter(n => !n.read).length;
+  const unreadCount   = notifications.filter(n => !n.read).length;
   const [showOrders, setShowOrders] = useState(false);
   const ordersRef = useRef<HTMLDivElement>(null);
   const feedRef   = useRef<HTMLDivElement>(null);
@@ -180,6 +122,7 @@ export default function AppHeader({
   return (
     <header className="border-b border-purple-900/50 bg-black/30 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 h-15 flex items-center justify-between py-3">
+
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center shadow-[0_0_16px_rgba(124,58,237,0.4)]">
@@ -191,7 +134,7 @@ export default function AppHeader({
           </div>
         </div>
 
-        {/* Center status */}
+        {/* Center */}
         <div className="hidden sm:flex items-center gap-4">
           {isMock && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25">
@@ -231,7 +174,6 @@ export default function AppHeader({
                 <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-96 bg-[#0e0a1a] border border-purple-700/50 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.7)] overflow-hidden z-50 flex flex-col"
                   style={{ maxHeight: "480px" }}>
 
-                  {/* Шапка панели */}
                   <div className="px-4 py-2.5 border-b border-purple-900/40 flex items-center gap-2">
                     <Icon name="ScrollText" size={12} className="text-violet-400" />
                     <span className="font-hud text-xs tracking-widest text-purple-400">ПРИКАЗНАЯ</span>
@@ -241,7 +183,6 @@ export default function AppHeader({
                     </button>
                   </div>
 
-                  {/* Лента приказов */}
                   <div ref={feedRef} className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-purple-800/40 scrollbar-track-transparent"
                     style={{ minHeight: "120px", maxHeight: "280px" }}>
                     {orders.length === 0 ? (
@@ -258,16 +199,14 @@ export default function AppHeader({
                     )}
                   </div>
 
-                  {/* Легенда кодов */}
                   <div className="px-3 py-1.5 bg-purple-950/40 border-t border-purple-900/30 flex flex-wrap gap-x-3 gap-y-0.5">
-                    {[["ФР","Фракция"],["АД","Адм."],["ОБ","Общий"],["ОП","Операт."],["ДС","Дисц."]].map(([c,l]) => (
-                      <span key={c} className="text-[9px] font-mono-hud text-purple-800">
-                        <span className="text-violet-600">{c}</span> {l}
+                    {Object.entries(ORDER_PREFIX_LABELS).map(([code, label]) => (
+                      <span key={code} className="text-[9px] font-mono-hud text-purple-800">
+                        <span className="text-violet-600">{code}</span> {label}
                       </span>
                     ))}
                   </div>
 
-                  {/* Форма */}
                   {canPostOrders && (
                     <OrderForm authUser={authUser} players={players} orders={orders} onSubmit={handleAddOrder} />
                   )}
@@ -284,7 +223,6 @@ export default function AppHeader({
             <RoleBadge role={viewerRole} />
           </div>
 
-          {/* Колокол уведомлений */}
           {(viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "admin" || isCuratorRole(viewerRole)) && (
             <div className="relative">
               <button onClick={onToggleNotifications}
