@@ -6,8 +6,9 @@ from datetime import datetime, date
 app = Flask(__name__)
 CORS(app)
 
-DATA_FILE   = "/opt/hud_data/db.json"
-ORDERS_FILE = "/opt/hud_data/orders.json"
+DATA_FILE    = "/opt/hud_data/db.json"
+ORDERS_FILE  = "/opt/hud_data/orders.json"
+PENDING_FILE = "/opt/hud_data/pending_bind.json"
 
 VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
 VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "")
@@ -278,6 +279,17 @@ def do_set_status(user_id, status):
     write_db(db)
 
 
+def read_pending():
+    if not os.path.exists(PENDING_FILE):
+        return {}
+    with open(PENDING_FILE, "r") as f:
+        return json.load(f)
+
+def write_pending(data):
+    os.makedirs(os.path.dirname(PENDING_FILE), exist_ok=True)
+    with open(PENDING_FILE, "w") as f:
+        json.dump(data, f)
+
 def get_online_list():
     db = read_db()
     lines = []
@@ -323,11 +335,9 @@ def vk_webhook():
     peer_id = msg.get("peer_id")
     vk_id   = msg.get("from_id")
 
-    # Команда !кто — привязка аккаунта
+    # Команда !кто — начало привязки
     if text in ("!кто", "кто", "!who"):
         db = read_db()
-
-        # Уже привязан?
         already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
         if already:
             vk_send(peer_id,
@@ -335,75 +345,54 @@ def vk_webhook():
                 KEYBOARD_STATUS)
             return "ok", 200
 
-        # Берём игроков с сайта у которых нет vk_id
-        unlinked = [u for u in db["users"] if not u.get("vk_id")]
-        if not unlinked:
-            vk_send(peer_id,
-                "❌ Все аккаунты уже привязаны. Обратись к куратору.",
-                KEYBOARD_WHO)
-            return "ok", 200
+        # Запоминаем что этот vk_id ждёт ввода ника
+        pending = read_pending()
+        pending[str(vk_id)] = True
+        write_pending(pending)
 
-        # Формируем кнопки — по 2 в ряд, максимум 10 игроков
-        buttons = []
-        row = []
-        for i, u in enumerate(unlinked[:10]):
-            label = f"{u['username']}"[:40]
-            payload = json.dumps({"cmd": "bind", "uid": u["id"]})
-            row.append({
-                "action": {"type": "text", "label": label, "payload": payload},
-                "color": "primary"
-            })
-            if len(row) == 2 or i == len(unlinked[:10]) - 1:
-                buttons.append(row)
-                row = []
-
-        keyboard = json.dumps({"one_time": True, "buttons": buttons})
-
-        # Строим список для сообщения
-        lines = [f"👤 {u['username']} — {u.get('title','')} [Ранг {u.get('rank','')}]" for u in unlinked[:10]]
         vk_send(peer_id,
-            "Выбери свой аккаунт из списка:\n" + "\n".join(lines),
-            keyboard)
+            "✍️ Напиши свой ник с сайта (точно как он указан в журнале):",
+            None)
         return "ok", 200
 
-    # Обработка выбора аккаунта через payload кнопки
-    payload_raw = msg.get("payload", "{}")
-    try:
-        payload = json.loads(payload_raw) if payload_raw else {}
-    except Exception:
-        payload = {}
-
-    if payload.get("cmd") == "bind":
-        uid = payload.get("uid")
+    # Если пользователь в режиме ожидания — пробуем привязать по нику
+    pending = read_pending()
+    if str(vk_id) in pending:
         db = read_db()
 
-        # Проверяем не привязан ли уже этот vk_id
-        already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
-        if already:
+        # Ищем по нику (без учёта регистра)
+        target = next((u for u in db["users"]
+                       if u["username"].lower() == text.lower()), None)
+
+        if not target:
             vk_send(peer_id,
-                f"✅ Ты уже привязан как {already['username']}.",
-                KEYBOARD_STATUS)
+                f"❌ Ник «{text}» не найден в журнале. Проверь написание и попробуй снова:",
+                None)
+            return "ok", 200
+
+        if target.get("vk_id"):
+            vk_send(peer_id,
+                f"❌ Аккаунт {target['username']} уже привязан к другому VK.",
+                KEYBOARD_WHO)
+            del pending[str(vk_id)]
+            write_pending(pending)
             return "ok", 200
 
         # Привязываем
-        target = next((u for u in db["users"] if u["id"] == uid), None)
-        if target:
-            if target.get("vk_id"):
-                vk_send(peer_id,
-                    f"❌ Аккаунт {target['username']} уже привязан к другому VK.",
-                    KEYBOARD_WHO)
-                return "ok", 200
-            target["vk_id"] = vk_id
-            # Сохраняем фото из VK
-            _, vk_photo = vk_get_user_info(vk_id)
-            if vk_photo:
-                target["vk_photo"] = vk_photo
-            write_db(db)
-            vk_send(peer_id,
-                f"✅ Готово! Ты — {target['username']} [{target.get('title','')}], Ранг {target.get('rank','')}.\nТеперь используй кнопки:",
-                KEYBOARD_STATUS)
-        else:
-            vk_send(peer_id, "❌ Аккаунт не найден. Попробуй снова.", KEYBOARD_WHO)
+        target["vk_id"] = vk_id
+        _, vk_photo = vk_get_user_info(vk_id)
+        if vk_photo:
+            target["vk_photo"] = vk_photo
+        write_db(db)
+
+        # Удаляем из ожидания
+        del pending[str(vk_id)]
+        write_pending(pending)
+
+        vk_send(peer_id,
+            f"✅ Готово! Ты — {target['username']} [{target.get('title','')}], Ранг {target.get('rank','')}.\n"
+            f"Теперь используй кнопки для смены статуса:",
+            KEYBOARD_STATUS)
         return "ok", 200
 
     # Команды статуса
