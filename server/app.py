@@ -191,7 +191,7 @@ def edit_user(user_id):
     body = request.get_json() or {}
     allowed = {"username","password","rank","title","role","level","xp","xpMax",
                "reputation","warnings","penalties","status","onlineToday",
-               "onlineWeek","weekActivity","vk_id","vk_photo"}
+               "onlineWeek","weekActivity","vk_id","vk_photo","orgId"}
     db = read_db()
     for u in db["users"]:
         if u["id"] == user_id:
