@@ -326,41 +326,84 @@ def vk_webhook():
     # Команда !кто — привязка аккаунта
     if text in ("!кто", "кто", "!who"):
         db = read_db()
-        # Ищем пользователя с таким vk_id
+
+        # Уже привязан?
         already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
         if already:
             vk_send(peer_id,
-                f"✅ Ты уже привязан как {already['username']}.\nИспользуй кнопки для смены статуса.",
+                f"✅ Ты уже привязан как {already['username']} [{already.get('title','')}].\nИспользуй кнопки для смены статуса.",
                 KEYBOARD_STATUS)
             return "ok", 200
 
-        # Получаем имя и фото из VK
-        vk_name, vk_photo = vk_get_user_info(vk_id)
+        # Берём игроков с сайта у которых нет vk_id
+        unlinked = [u for u in db["users"] if not u.get("vk_id")]
+        if not unlinked:
+            vk_send(peer_id,
+                "❌ Все аккаунты уже привязаны. Обратись к куратору.",
+                KEYBOARD_WHO)
+            return "ok", 200
 
-        # Ищем пользователя по имени VK или создаём запись с vk_id
-        matched = None
-        if vk_name:
-            for u in db["users"]:
-                if u["username"].lower() == vk_name.lower():
-                    matched = u
-                    break
+        # Формируем кнопки — по 2 в ряд, максимум 10 игроков
+        buttons = []
+        row = []
+        for i, u in enumerate(unlinked[:10]):
+            label = f"{u['username']}"[:40]
+            payload = json.dumps({"cmd": "bind", "uid": u["id"]})
+            row.append({
+                "action": {"type": "text", "label": label, "payload": payload},
+                "color": "primary"
+            })
+            if len(row) == 2 or i == len(unlinked[:10]) - 1:
+                buttons.append(row)
+                row = []
 
-        if matched:
-            matched["vk_id"] = vk_id
+        keyboard = json.dumps({"one_time": True, "buttons": buttons})
+
+        # Строим список для сообщения
+        lines = [f"👤 {u['username']} — {u.get('title','')} [Ранг {u.get('rank','')}]" for u in unlinked[:10]]
+        vk_send(peer_id,
+            "Выбери свой аккаунт из списка:\n" + "\n".join(lines),
+            keyboard)
+        return "ok", 200
+
+    # Обработка выбора аккаунта через payload кнопки
+    payload_raw = msg.get("payload", "{}")
+    try:
+        payload = json.loads(payload_raw) if payload_raw else {}
+    except Exception:
+        payload = {}
+
+    if payload.get("cmd") == "bind":
+        uid = payload.get("uid")
+        db = read_db()
+
+        # Проверяем не привязан ли уже этот vk_id
+        already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
+        if already:
+            vk_send(peer_id,
+                f"✅ Ты уже привязан как {already['username']}.",
+                KEYBOARD_STATUS)
+            return "ok", 200
+
+        # Привязываем
+        target = next((u for u in db["users"] if u["id"] == uid), None)
+        if target:
+            if target.get("vk_id"):
+                vk_send(peer_id,
+                    f"❌ Аккаунт {target['username']} уже привязан к другому VK.",
+                    KEYBOARD_WHO)
+                return "ok", 200
+            target["vk_id"] = vk_id
+            # Сохраняем фото из VK
+            _, vk_photo = vk_get_user_info(vk_id)
             if vk_photo:
-                matched["vk_photo"] = vk_photo
+                target["vk_photo"] = vk_photo
             write_db(db)
             vk_send(peer_id,
-                f"✅ Аккаунт привязан автоматически!\nТы — {matched['username']}.\nТеперь используй кнопки:",
+                f"✅ Готово! Ты — {target['username']} [{target.get('title','')}], Ранг {target.get('rank','')}.\nТеперь используй кнопки:",
                 KEYBOARD_STATUS)
         else:
-            # Не нашли — сообщаем ID для ручной привязки куратором
-            vk_send(peer_id,
-                f"🔗 Твой VK ID: {vk_id}\n"
-                f"{'Имя: ' + vk_name if vk_name else ''}\n"
-                f"Сообщи куратору этот ID — он привяжет тебя к журналу.\n"
-                f"После привязки нажми !кто снова.",
-                KEYBOARD_WHO)
+            vk_send(peer_id, "❌ Аккаунт не найден. Попробуй снова.", KEYBOARD_WHO)
         return "ok", 200
 
     # Команды статуса
