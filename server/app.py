@@ -16,6 +16,22 @@ VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
 VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "")
 VK_SECRET_KEY   = os.environ.get("VK_SECRET_KEY", "")
 
+# ID бесед (peer_id). Фракционная беседа — для игроков/лидеров/замов.
+# Админская беседа — для администраторов и кураторов.
+# Устанавливаются через /api/settings
+SETTINGS_FILE = "/opt/hud_data/settings.json"
+
+def read_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return {"chat_faction": None, "chat_admin": None}
+    with open(SETTINGS_FILE, "r") as f:
+        return json.load(f)
+
+def write_settings(s):
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(s, f)
+
 DEFAULT_DATA = {"users": [
     {"id": 1, "username": "BlackStar_IX", "password": "curator123",
      "rank": "IV", "title": "Командующий", "role": "curator",
@@ -245,6 +261,19 @@ def update_table(scope):
     write_tables(tables)
     return jsonify({"ok": True})
 
+# ── Settings ──────────────────────────────────────────────────
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    return jsonify(read_settings())
+
+@app.route("/api/settings", methods=["PATCH"])
+def update_settings():
+    body = request.get_json() or {}
+    s = read_settings()
+    s.update({k: v for k, v in body.items() if k in ("chat_faction", "chat_admin")})
+    write_settings(s)
+    return jsonify({"ok": True})
+
 # ── Notify VK on status change from site ─────────────────────
 @app.route("/api/users/<int:user_id>/notify-vk", methods=["POST"])
 def notify_vk_status(user_id):
@@ -402,6 +431,38 @@ def write_pending(data):
     os.makedirs(os.path.dirname(PENDING_FILE), exist_ok=True)
     with open(PENDING_FILE, "w") as f:
         json.dump(data, f)
+
+FACTION_ROLES_SET = {"user", "leader", "deputy"}
+ADMIN_ROLES_SET   = {"admin", "curator", "curator_admin", "curator_faction"}
+
+def broadcast_status(player, cmd):
+    """Отправляем сообщение о смене статуса в нужные беседы."""
+    settings = read_settings()
+    chat_faction = settings.get("chat_faction")
+    chat_admin   = settings.get("chat_admin")
+    role = player.get("role", "user")
+
+    # Список онлайн для фракционной беседы (только фракционные)
+    faction_lines = get_online_list("leader")   # leader видит только фракционных
+    # Список онлайн для админской беседы (только админы)
+    admin_lines   = get_online_list("curator_admin")  # curator_admin видит только адм
+
+    status_text = STATUS_LABELS.get(cmd, cmd)
+
+    # Куратор фракций видит фракционных — получает в свою беседу
+    # Игрок/лидер/зам отмечается → сообщение в фракционную беседу
+    if role in FACTION_ROLES_SET:
+        if chat_faction:
+            lines = faction_lines
+            reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+            vk_send(chat_faction, reply, KEYBOARD_STATUS)
+
+    # Администратор/куратор отмечается → сообщение в админскую беседу
+    elif role in ADMIN_ROLES_SET:
+        if chat_admin:
+            lines = admin_lines
+            reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+            vk_send(chat_admin, reply, KEYBOARD_STATUS)
 
 ADMIN_ROLES    = {"admin", "curator", "curator_admin", "curator_faction"}
 FACTION_ROLES  = {"user", "leader", "deputy"}
@@ -572,15 +633,12 @@ def vk_webhook():
     # Меняем статус
     do_set_status(player["id"], cmd)
 
-    # Список онлайн — фильтруем по роли игрока (только фракция для user/leader/deputy)
-    viewer_role  = player.get("role", "user")
-    online_lines = get_online_list(viewer_role)
-    reply = (
-        f"⚠️ {player['username']} {STATUS_LABELS[cmd]}.\n"
-        f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")
-    )
-    # Отправляем ТОЛЬКО в личку пользователю (его vk_id), не в беседу
-    vk_send(player["vk_id"], reply, KEYBOARD_STATUS)
+    # Перечитываем актуальные данные после обновления
+    db2 = read_db()
+    player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
+
+    # Отправляем в нужную беседу (фракционную или админскую)
+    broadcast_status(player2, cmd)
     return "ok", 200
 
 
