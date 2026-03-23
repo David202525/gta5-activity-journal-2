@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import LoginScreen from "@/components/LoginScreen";
 import AppHeader from "@/components/hud/AppHeader";
 import { ProfileCard, TabBar } from "@/components/hud/ProfileCard";
@@ -36,6 +36,10 @@ export default function Index() {
   const [authUser, setAuthUser]           = useState<AuthUser | null>(() => loadSession());
   const [activeTab, setActiveTab]         = useState<Tab>("stats");
   const [myStatus, setMyStatus]           = useState<Status>(() => loadSession()?.status as Status ?? "offline");
+  const authUserRef = useRef(authUser);
+  const myStatusRef = useRef(myStatus);
+  useEffect(() => { authUserRef.current = authUser; }, [authUser]);
+  useEffect(() => { myStatusRef.current = myStatus; }, [myStatus]);
   const [players, setPlayers]             = useState<Player[]>([]);
   const [orgs, setOrgs]                   = useState<Organization[]>(MOCK_ORGS);
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
@@ -56,12 +60,14 @@ export default function Index() {
     try {
       const list = await apiGetPlayers();
       setPlayers(list);
-      // Синхронизируем статус залогиненного пользователя с сервером
-      if (authUser) {
-        const fresh = list.find(p => p.id === authUser.id);
-        if (fresh && fresh.status !== myStatus) {
+      // Синхронизируем статус из сервера — используем ref чтобы всегда брать актуальное значение
+      const curUser = authUserRef.current;
+      const curStatus = myStatusRef.current;
+      if (curUser) {
+        const fresh = list.find(p => p.id === curUser.id);
+        if (fresh && fresh.status !== curStatus) {
           setMyStatus(fresh.status as Status);
-          const updated = { ...authUser, status: fresh.status as Status };
+          const updated = { ...curUser, ...fresh, token: curUser.token };
           setAuthUser(updated);
           saveSession(updated);
         }

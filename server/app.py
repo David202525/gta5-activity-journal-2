@@ -208,6 +208,7 @@ KEYBOARD_WHO = json.dumps({
 })
 
 STATUS_LABELS = {"online": "в сети 🟢", "afk": "АФК 🟡", "offline": "вышел 🔴"}
+BOT_NAME = "Журнал активности"
 
 
 def vk_send(peer_id, text, keyboard=None):
@@ -218,13 +219,28 @@ def vk_send(peer_id, text, keyboard=None):
         "access_token": VK_TOKEN,
         "v": "5.131",
     }
-    if keyboard:
+    if keyboard is not None:
         params["keyboard"] = keyboard
     url = "https://api.vk.com/method/messages.send?" + urllib.parse.urlencode(params)
     try:
         urllib.request.urlopen(url)
     except Exception as e:
         print(f"VK send error: {e}")
+
+def vk_delete_message(peer_id, msg_id):
+    """Удаляем сообщение пользователя в беседе."""
+    params = {
+        "peer_id": peer_id,
+        "cmids": msg_id,
+        "delete_for_all": 1,
+        "access_token": VK_TOKEN,
+        "v": "5.131",
+    }
+    url = "https://api.vk.com/method/messages.delete?" + urllib.parse.urlencode(params)
+    try:
+        urllib.request.urlopen(url)
+    except Exception as e:
+        print(f"VK delete error: {e}")
 
 
 def vk_get_user_info(vk_id):
@@ -313,32 +329,38 @@ def vk_webhook():
 
     event_type = body.get("type")
 
-    # Новый участник вошёл в беседу
-    if event_type == "chat_invite_user":
+    # Новый участник вошёл в беседу — сразу показываем кнопку !кто
+    if event_type in ("chat_invite_user", "chat_invite_user_by_link"):
         obj     = body.get("object", {})
         peer_id = obj.get("peer_id") or obj.get("chat_id", 0) + 2000000000
         vk_id   = obj.get("user_id") or obj.get("from_id")
         if vk_id and vk_id > 0:
             db = read_db()
             already = any(u.get("vk_id") == vk_id for u in db["users"])
-            if not already:
+            if already:
+                player = next(u for u in db["users"] if u.get("vk_id") == vk_id)
                 vk_send(peer_id,
-                    f"👋 Привет! Нажми кнопку !кто чтобы привязать свой аккаунт к журналу.",
+                    f"👋 С возвращением, {player['username']}! Используй кнопки:",
+                    KEYBOARD_STATUS)
+            else:
+                vk_send(peer_id,
+                    f"👋 Привет! Нажми кнопку ниже чтобы привязать аккаунт к журналу:",
                     KEYBOARD_WHO)
         return "ok", 200
 
     if event_type != "message_new":
         return "ok", 200
 
-    msg     = body.get("object", {}).get("message", {})
+    msg      = body.get("object", {}).get("message", {})
+    msg_id   = msg.get("conversation_message_id") or msg.get("id")
     raw_text = msg.get("text", "").strip()
-    # Убираем упоминание группы вида @club123456 в начале
     import re
+    # Убираем упоминание группы: [club123|текст] или @club123
     raw_text = re.sub(r'^\[club\d+\|[^\]]*\]\s*', '', raw_text).strip()
     raw_text = re.sub(r'^@club\d+\s*', '', raw_text).strip()
-    text    = raw_text.lower()
-    peer_id = msg.get("peer_id")
-    vk_id   = msg.get("from_id")
+    text     = raw_text.lower()
+    peer_id  = msg.get("peer_id")
+    vk_id    = msg.get("from_id")
 
     # Команда !кто — начало привязки
     if text in ("!кто", "кто", "!who", "начать", "start", "привязать"):
@@ -412,10 +434,15 @@ def vk_webhook():
         linked = any(u.get("vk_id") == vk_id for u in db["users"])
         in_pending = str(vk_id) in pending
         if linked:
+            # Удаляем постороннее сообщение и напоминаем про кнопки
+            vk_delete_message(peer_id, msg_id)
             vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
         elif in_pending:
-            vk_send(peer_id, "✍️ Напиши свой ник с сайта (точно как он указан в журнале):", None)
+            # Ждём ввода ника — не удаляем, это нужное сообщение
+            pass
         else:
+            # Удаляем и показываем кнопку !кто
+            vk_delete_message(peer_id, msg_id)
             vk_send(peer_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
         return "ok", 200
 
