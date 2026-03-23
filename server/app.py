@@ -150,7 +150,7 @@ def edit_user(user_id):
     body = request.get_json() or {}
     allowed = {"username","password","rank","title","role","level","xp","xpMax",
                "reputation","warnings","penalties","status","onlineToday",
-               "onlineWeek","weekActivity","vk_id"}
+               "onlineWeek","weekActivity","vk_id","vk_photo"}
     db = read_db()
     for u in db["users"]:
         if u["id"] == user_id:
@@ -190,7 +190,7 @@ def delete_order(order_id):
 
 # ── VK Bot ────────────────────────────────────────────────────
 
-KEYBOARD = json.dumps({
+KEYBOARD_STATUS = json.dumps({
     "one_time": False,
     "buttons": [[
         {"action": {"type": "text", "label": "!онлайн",  "payload": "{\"cmd\":\"online\"}"},  "color": "positive"},
@@ -199,7 +199,15 @@ KEYBOARD = json.dumps({
     ]]
 })
 
+KEYBOARD_WHO = json.dumps({
+    "one_time": False,
+    "buttons": [[
+        {"action": {"type": "text", "label": "!кто", "payload": "{\"cmd\":\"who\"}"}, "color": "primary"},
+    ]]
+})
+
 STATUS_LABELS = {"online": "в сети 🟢", "afk": "АФК 🟡", "offline": "вышел 🔴"}
+
 
 def vk_send(peer_id, text, keyboard=None):
     params = {
@@ -212,7 +220,73 @@ def vk_send(peer_id, text, keyboard=None):
     if keyboard:
         params["keyboard"] = keyboard
     url = "https://api.vk.com/method/messages.send?" + urllib.parse.urlencode(params)
-    urllib.request.urlopen(url)
+    try:
+        urllib.request.urlopen(url)
+    except Exception as e:
+        print(f"VK send error: {e}")
+
+
+def vk_get_user_info(vk_id):
+    """Получаем имя и фото пользователя из VK."""
+    params = {
+        "user_ids": vk_id,
+        "fields": "photo_200",
+        "access_token": VK_TOKEN,
+        "v": "5.131",
+    }
+    url = "https://api.vk.com/method/users.get?" + urllib.parse.urlencode(params)
+    try:
+        with urllib.request.urlopen(url) as r:
+            data = json.loads(r.read())
+            users = data.get("response", [])
+            if users:
+                u = users[0]
+                name = f"{u.get('first_name','')} {u.get('last_name','')}".strip()
+                photo = u.get("photo_200", "")
+                return name, photo
+    except Exception:
+        pass
+    return None, None
+
+
+def do_set_status(user_id, status):
+    """Меняем статус игрока напрямую без test_request_context."""
+    today_str = date.today().isoformat()
+    db = read_db()
+    for u in db["users"]:
+        if u["id"] == user_id:
+            prev = u.get("status", "offline")
+            if prev == "online" and u.get("session_start"):
+                try:
+                    start = datetime.fromisoformat(u["session_start"])
+                    elapsed = int((datetime.utcnow() - start).total_seconds() / 60)
+                    if elapsed > 0:
+                        if u.get("last_online_date") != today_str:
+                            u["onlineToday"] = 0
+                        u["onlineToday"] = u.get("onlineToday", 0) + elapsed
+                        u["onlineWeek"]  = u.get("onlineWeek", 0) + elapsed
+                        wa = u.get("weekActivity", [0]*7)
+                        if len(wa) < 7: wa += [0]*(7-len(wa))
+                        wa[date.today().weekday()] += elapsed
+                        u["weekActivity"] = wa
+                except Exception:
+                    pass
+            u["status"] = status
+            u["last_online_date"] = today_str
+            u["session_start"] = datetime.utcnow().isoformat() if status == "online" else None
+            break
+    write_db(db)
+
+
+def get_online_list():
+    db = read_db()
+    lines = []
+    for u in db["users"]:
+        if u["status"] in ("online", "afk"):
+            icon = "🟢" if u["status"] == "online" else "🟡"
+            lines.append(f"{icon} {u['username']} [{u.get('title','')}]")
+    return lines
+
 
 @app.route("/api/vk", methods=["POST"])
 def vk_webhook():
@@ -221,10 +295,27 @@ def vk_webhook():
     if body.get("secret") and body.get("secret") != VK_SECRET_KEY:
         return "forbidden", 403
 
+    # Подтверждение сервера
     if body.get("type") == "confirmation":
         return VK_CONFIRM_CODE, 200
 
-    if body.get("type") != "message_new":
+    event_type = body.get("type")
+
+    # Новый участник вошёл в беседу
+    if event_type == "chat_invite_user":
+        obj     = body.get("object", {})
+        peer_id = obj.get("peer_id") or obj.get("chat_id", 0) + 2000000000
+        vk_id   = obj.get("user_id") or obj.get("from_id")
+        if vk_id and vk_id > 0:
+            db = read_db()
+            already = any(u.get("vk_id") == vk_id for u in db["users"])
+            if not already:
+                vk_send(peer_id,
+                    f"👋 Привет! Нажми кнопку !кто чтобы привязать свой аккаунт к журналу.",
+                    KEYBOARD_WHO)
+        return "ok", 200
+
+    if event_type != "message_new":
         return "ok", 200
 
     msg     = body.get("object", {}).get("message", {})
@@ -232,17 +323,60 @@ def vk_webhook():
     peer_id = msg.get("peer_id")
     vk_id   = msg.get("from_id")
 
-    # Определяем команду
+    # Команда !кто — привязка аккаунта
+    if text in ("!кто", "кто", "!who"):
+        db = read_db()
+        # Ищем пользователя с таким vk_id
+        already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
+        if already:
+            vk_send(peer_id,
+                f"✅ Ты уже привязан как {already['username']}.\nИспользуй кнопки для смены статуса.",
+                KEYBOARD_STATUS)
+            return "ok", 200
+
+        # Получаем имя и фото из VK
+        vk_name, vk_photo = vk_get_user_info(vk_id)
+
+        # Ищем пользователя по имени VK или создаём запись с vk_id
+        matched = None
+        if vk_name:
+            for u in db["users"]:
+                if u["username"].lower() == vk_name.lower():
+                    matched = u
+                    break
+
+        if matched:
+            matched["vk_id"] = vk_id
+            if vk_photo:
+                matched["vk_photo"] = vk_photo
+            write_db(db)
+            vk_send(peer_id,
+                f"✅ Аккаунт привязан автоматически!\nТы — {matched['username']}.\nТеперь используй кнопки:",
+                KEYBOARD_STATUS)
+        else:
+            # Не нашли — сообщаем ID для ручной привязки куратором
+            vk_send(peer_id,
+                f"🔗 Твой VK ID: {vk_id}\n"
+                f"{'Имя: ' + vk_name if vk_name else ''}\n"
+                f"Сообщи куратору этот ID — он привяжет тебя к журналу.\n"
+                f"После привязки нажми !кто снова.",
+                KEYBOARD_WHO)
+        return "ok", 200
+
+    # Команды статуса
     cmd = None
-    if text in ("!онлайн", "онлайн", "!online"):
-        cmd = "online"
-    elif text in ("!афк", "афк", "!afk"):
-        cmd = "afk"
-    elif text in ("!вышел", "вышел", "!выход", "!offline"):
-        cmd = "offline"
+    if text in ("!онлайн", "онлайн", "!online"):   cmd = "online"
+    elif text in ("!афк", "афк", "!afk"):           cmd = "afk"
+    elif text in ("!вышел", "вышел", "!offline"):   cmd = "offline"
 
     if cmd is None:
-        vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD)
+        # Проверяем привязан ли пользователь
+        db = read_db()
+        linked = any(u.get("vk_id") == vk_id for u in db["users"])
+        if linked:
+            vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
+        else:
+            vk_send(peer_id, "Сначала привяжи аккаунт:", KEYBOARD_WHO)
         return "ok", 200
 
     # Ищем игрока по vk_id
@@ -250,32 +384,22 @@ def vk_webhook():
     player = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
     if not player:
         vk_send(peer_id,
-            f"❌ Твой VK аккаунт не привязан.\nСообщи куратору свой VK ID: {vk_id}",
-            KEYBOARD)
+            f"❌ Аккаунт не привязан. Нажми !кто для привязки.",
+            KEYBOARD_WHO)
         return "ok", 200
 
-    # Меняем статус через существующую логику
-    with app.test_request_context(
-        f"/api/users/{player['id']}/status",
-        method="POST",
-        json={"status": cmd}
-    ):
-        set_status(player["id"])
+    # Меняем статус
+    do_set_status(player["id"], cmd)
 
     # Список онлайн
-    db2 = read_db()
-    online_lines = []
-    for u in db2["users"]:
-        if u["status"] in ("online", "afk"):
-            icon = "🟢" if u["status"] == "online" else "🟡"
-            online_lines.append(f"{icon} {u['username']} [{u.get('title','')}]")
-
+    online_lines = get_online_list()
     reply = (
         f"⚠️ {player['username']} {STATUS_LABELS[cmd]}.\n"
         f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")
     )
-    vk_send(peer_id, reply, KEYBOARD)
+    vk_send(peer_id, reply, KEYBOARD_STATUS)
     return "ok", 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
