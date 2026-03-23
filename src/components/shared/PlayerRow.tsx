@@ -55,7 +55,7 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   viewerRole?: Role;
   onAddWarning?: (id: number, reason: string) => void;
   onRemoveWarning?: (id: number) => void;
-  onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string }) => void;
+  onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string; vk_id?: number | null }) => void;
   onRoleChange?: (id: number, role: Role) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -63,15 +63,18 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   const [editingRank, setEditingRank] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingRole, setEditingRole] = useState(false);
+  const [editingVkId, setEditingVkId] = useState(false);
   const [addingWarning, setAddingWarning] = useState(false);
   const [warningReason, setWarningReason] = useState("");
   const [draftName, setDraftName] = useState(player.username);
   const [draftTitle, setDraftTitle] = useState(player.title);
   const [draftRank, setDraftRank] = useState(player.rank);
+  const [draftVkId, setDraftVkId] = useState(String((player as Player & { vk_id?: number | null }).vk_id ?? ""));
   const nameRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const rankRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLInputElement>(null);
+  const vkIdRef = useRef<HTMLInputElement>(null);
 
   // Права: можно ли данному viewer редактировать этого player
   const canEditThis = canEdit && !!viewerRole && canEditTarget(viewerRole, player.role);
@@ -104,6 +107,14 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   useEffect(() => { if (editingTitle) titleRef.current?.focus(); }, [editingTitle]);
   useEffect(() => { if (editingRank) rankRef.current?.focus(); }, [editingRank]);
   useEffect(() => { if (addingWarning) reasonRef.current?.focus(); }, [addingWarning]);
+  useEffect(() => { if (editingVkId) vkIdRef.current?.focus(); }, [editingVkId]);
+
+  const commitVkId = () => {
+    const val = draftVkId.trim();
+    const parsed = val ? parseInt(val) : null;
+    onEditPlayer?.(player.id, { vk_id: parsed });
+    setEditingVkId(false);
+  };
 
   const commitName = () => {
     const trimmed = draftName.trim();
@@ -260,6 +271,33 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
               <span className="text-[10px] font-mono-hud text-purple-700 w-8 text-right">{Math.round((player.reputation / 10000) * 100)}%</span>
             </div>
           </div>
+          {canEdit && canEditThis && (
+            <div className="mt-2 mb-2" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                <Icon name="MessageCircle" size={11} className="text-purple-700 flex-shrink-0" />
+                <span className="text-[10px] font-hud tracking-widest text-purple-700">VK ID</span>
+                {!editingVkId ? (
+                  <span
+                    className="text-[10px] font-mono-hud text-purple-500 cursor-text hover:text-violet-300 transition-colors"
+                    onClick={() => setEditingVkId(true)}
+                    title="Нажмите для привязки VK ID"
+                  >
+                    {draftVkId || "не привязан"}
+                  </span>
+                ) : (
+                  <input
+                    ref={vkIdRef}
+                    value={draftVkId}
+                    onChange={e => setDraftVkId(e.target.value.replace(/\D/g, ""))}
+                    onBlur={commitVkId}
+                    onKeyDown={e => { if (e.key === "Enter") commitVkId(); if (e.key === "Escape") setEditingVkId(false); }}
+                    placeholder="123456789"
+                    className="text-[10px] font-mono-hud bg-purple-900/50 border border-violet-600/50 rounded-md px-2 py-0.5 outline-none w-32 text-purple-100 focus:border-violet-400/70"
+                  />
+                )}
+              </div>
+            </div>
+          )}
           {canEdit && (
             <div className="mt-4 pt-3 border-t border-purple-900/40 space-y-2.5">
               {/* Предупреждения */}
