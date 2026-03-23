@@ -341,7 +341,7 @@ def vk_webhook():
     vk_id   = msg.get("from_id")
 
     # Команда !кто — начало привязки
-    if text in ("!кто", "кто", "!who"):
+    if text in ("!кто", "кто", "!who", "начать", "start", "привязать"):
         db = read_db()
         already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
         if already:
@@ -407,13 +407,16 @@ def vk_webhook():
     elif text in ("!вышел", "вышел", "!offline"):   cmd = "offline"
 
     if cmd is None:
-        # Проверяем привязан ли пользователь
         db = read_db()
+        pending = read_pending()
         linked = any(u.get("vk_id") == vk_id for u in db["users"])
+        in_pending = str(vk_id) in pending
         if linked:
             vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS)
+        elif in_pending:
+            vk_send(peer_id, "✍️ Напиши свой ник с сайта (точно как он указан в журнале):", None)
         else:
-            vk_send(peer_id, "Сначала привяжи аккаунт:", KEYBOARD_WHO)
+            vk_send(peer_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO)
         return "ok", 200
 
     # Ищем игрока по vk_id
