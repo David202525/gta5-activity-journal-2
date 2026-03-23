@@ -1,9 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import HudSelect from "@/components/ui/hud-select";
 import { TableSheet, TableColumn, TableRow, TABLE_COL_COLORS, COL_ID_VERBAL, COL_ID_REPRIMAND } from "@/lib/types";
 
 const AUTO_COLS = new Set([COL_ID_VERBAL, COL_ID_REPRIMAND]);
+const COL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const getColLetter = (i: number) => {
+  if (i < 26) return COL_LETTERS[i];
+  return COL_LETTERS[Math.floor(i / 26) - 1] + COL_LETTERS[i % 26];
+};
 
 // ─── PENALTY CELL ────────────────────────────────────────────
 function PenaltyCell({ value, colId, canEdit, onSave }: {
@@ -38,8 +42,7 @@ function PenaltyCell({ value, colId, canEdit, onSave }: {
   const pickNumber = (n: number) => {
     if (n === num) { close(); return; }
     if (n === 0) { onSave("0", "Снято"); close(); return; }
-    setPending(n);
-    setStep("reason");
+    setPending(n); setStep("reason");
   };
 
   const confirm = () => {
@@ -48,70 +51,59 @@ function PenaltyCell({ value, colId, canEdit, onSave }: {
     close();
   };
 
-  const colorCls = num === 0
-    ? "text-purple-700"
+  const colorCls = num === 0 ? "text-gray-400"
     : isVerbal
-      ? num >= 2 ? "text-red-400" : "text-yellow-300"
-      : num >= 3 ? "text-red-400" : num >= 2 ? "text-orange-300" : "text-yellow-300";
+      ? num >= 2 ? "text-red-600 font-semibold" : "text-amber-600 font-semibold"
+      : num >= 3 ? "text-red-600 font-semibold" : num >= 2 ? "text-orange-600 font-semibold" : "text-amber-600 font-semibold";
 
   return (
-    <div ref={ref} className="relative px-2 py-1.5">
+    <div ref={ref} className="relative w-full h-full flex items-center justify-center">
       <div
-        className={`text-[11px] font-mono-hud ${colorCls} ${canEdit ? "cursor-pointer hover:opacity-80" : ""} select-none`}
+        className={`text-[12px] font-mono ${colorCls} ${canEdit ? "cursor-pointer hover:opacity-80" : ""} select-none`}
         onClick={() => { if (canEdit) { setOpen(o => !o); setStep("pick"); } }}
         title={canEdit ? "Нажмите для изменения" : undefined}
       >
-        {num === 0 ? "—" : num}
+        {num === 0 ? "0" : num}
       </div>
 
       {open && canEdit && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-xl w-56">
-          <div className="px-3 py-2 border-b border-purple-900/40 flex items-center justify-between">
-            <div className="text-[10px] font-hud tracking-widest text-purple-600">
-              {isVerbal ? "УСТ. ПРЕДУПРЕЖДЕНИЯ" : "ВЫГОВОРЫ"} (0–{max})
+        <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-300 rounded shadow-xl w-56">
+          <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+            <div className="text-[11px] font-semibold text-gray-600">
+              {isVerbal ? "Уст. предупреждения" : "Выговоры"} (0–{max})
             </div>
-            <button onClick={close} className="text-purple-800 hover:text-purple-400 transition-colors">
-              <Icon name="X" size={11} />
+            <button onClick={close} className="text-gray-400 hover:text-gray-600">
+              <Icon name="X" size={12} />
             </button>
           </div>
-
           {step === "pick" && (
             <div className="flex gap-1.5 p-3">
               {options.map(n => (
                 <button key={n} onClick={() => pickNumber(n)}
-                  className={`w-9 h-9 rounded-lg font-hud text-sm border transition-all flex-1
-                    ${n === num
-                      ? "border-violet-500/70 bg-violet-700/30 text-violet-200"
-                      : "border-purple-800/40 text-purple-500 hover:border-violet-600/50 hover:text-violet-300"
-                    }`}>
+                  className={`flex-1 h-9 rounded border text-sm font-mono transition-all
+                    ${n === num ? "border-blue-500 bg-blue-50 text-blue-700 font-semibold"
+                      : "border-gray-200 text-gray-600 hover:border-blue-400 hover:bg-blue-50"}`}>
                   {n}
                 </button>
               ))}
             </div>
           )}
-
           {step === "reason" && (
-            <div className="p-3 space-y-2.5">
-              <div className="text-[10px] font-hud text-purple-500">
-                Укажите причину выдачи <span className={isVerbal ? "text-yellow-400" : "text-orange-400"}>×{pending}</span>
+            <div className="p-3 space-y-2">
+              <div className="text-[11px] text-gray-500">
+                Причина выдачи ×{pending}
               </div>
-              <textarea
-                ref={textRef}
-                value={reason}
-                onChange={e => setReason(e.target.value)}
+              <textarea ref={textRef} value={reason} onChange={e => setReason(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); confirm(); } if (e.key === "Escape") close(); }}
-                placeholder="Причина..."
-                rows={2}
-                maxLength={120}
-                className="w-full px-2.5 py-2 text-[11px] font-mono-hud text-purple-100 bg-purple-900/40 border border-purple-700/50 rounded-lg resize-none outline-none focus:border-violet-500/60 placeholder:text-purple-800 leading-snug"
+                placeholder="Причина..." rows={2} maxLength={120}
+                className="w-full px-2.5 py-1.5 text-[12px] font-mono text-gray-800 bg-white border border-gray-300 rounded resize-none outline-none focus:border-blue-400 placeholder:text-gray-400"
               />
               <div className="flex gap-2">
                 <button onClick={confirm} disabled={!reason.trim()}
-                  className="flex-1 btn-hud text-[10px] font-hud tracking-wider py-1.5 rounded-lg border border-violet-600/50 bg-violet-700/30 text-violet-200 hover:bg-violet-700/50 transition-all disabled:opacity-40">
-                  ПРИМЕНИТЬ
+                  className="flex-1 py-1.5 text-[11px] font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-all disabled:opacity-40">
+                  Применить
                 </button>
-                <button onClick={() => setStep("pick")}
-                  className="px-3 py-1.5 text-[10px] font-hud text-purple-700 hover:text-purple-400 transition-colors">
+                <button onClick={() => setStep("pick")} className="px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-700">
                   ←
                 </button>
               </div>
@@ -123,9 +115,10 @@ function PenaltyCell({ value, colId, canEdit, onSave }: {
   );
 }
 
-// ─── INLINE CELL ─────────────────────────────────────────────
-function Cell({ value, onSave, readOnly }: {
+// ─── SHEET CELL ───────────────────────────────────────────────
+function SheetCell({ value, onSave, readOnly, selected, onSelect, colIdx, rowIdx }: {
   value: string; onSave: (v: string) => void; readOnly?: boolean;
+  selected?: boolean; onSelect?: () => void; colIdx: number; rowIdx: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(value);
@@ -140,43 +133,68 @@ function Cell({ value, onSave, readOnly }: {
   };
 
   if (readOnly) return (
-    <div className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-500 truncate" title={value}>{value || "—"}</div>
+    <div
+      className={`w-full h-full px-2 py-1 text-[12px] font-mono text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis
+        ${selected ? "outline outline-2 outline-blue-500 bg-blue-50/50" : "hover:bg-gray-50"}`}
+      onClick={onSelect}
+      title={value}
+    >
+      {value}
+    </div>
   );
 
   return editing ? (
-    <textarea
-      ref={ref}
-      value={draft}
+    <textarea ref={ref} value={draft}
       onChange={e => setDraft(e.target.value)}
       onBlur={commit}
-      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+      onKeyDown={e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); }
+        if (e.key === "Escape") { setDraft(value); setEditing(false); }
+      }}
       rows={2}
-      className="w-full px-2 py-1.5 text-[11px] font-mono-hud text-purple-100 bg-violet-900/30 border border-violet-600/50 rounded-md resize-none outline-none leading-tight"
+      className="w-full h-full px-2 py-1 text-[12px] font-mono text-gray-800 bg-white outline outline-2 outline-blue-500 resize-none z-10 absolute inset-0"
+      style={{ minHeight: 32 }}
     />
   ) : (
     <div
-      className="px-2 py-1.5 text-[11px] font-mono-hud text-purple-200 cursor-text hover:bg-purple-900/20 rounded-md transition-colors min-h-[28px] leading-tight truncate"
+      className={`w-full h-full px-2 py-1 text-[12px] font-mono text-gray-800 overflow-hidden whitespace-nowrap text-ellipsis cursor-cell
+        ${selected ? "outline outline-2 outline-blue-500 bg-blue-50/30" : "hover:bg-gray-50"}`}
+      onClick={onSelect}
+      onDoubleClick={() => !readOnly && setEditing(true)}
       title={value}
-      onClick={() => setEditing(true)}
     >
-      {value || <span className="text-purple-800">—</span>}
+      {value}
     </div>
   );
 }
 
-// ─── COLUMN HEADER ───────────────────────────────────────────
-function ColHeader({ col, canEdit, onRename, onColorChange, onDelete }: {
-  col: TableColumn; canEdit: boolean;
+// ─── RESIZABLE COL HEADER ────────────────────────────────────
+function ColHeaderCell({ col, letter, canEdit, selected, onSelect, onRename, onColorChange, onDelete, width, onResize }: {
+  col: TableColumn; letter: string; canEdit: boolean; selected?: boolean;
+  onSelect?: () => void;
   onRename: (id: number, name: string) => void;
   onColorChange: (id: number, color: string) => void;
   onDelete: (id: number) => void;
+  width: number;
+  onResize: (id: number, w: number) => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [draft, setDraft] = useState(col.name);
-  const ref = useRef<HTMLInputElement>(null);
+  const [editing, setEditing]   = useState(false);
+  const [draft, setDraft]       = useState(col.name);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resizing = useRef(false);
+  const startX   = useRef(0);
+  const startW   = useRef(0);
 
-  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setShowMenu(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
 
   const commit = () => {
     const t = draft.trim();
@@ -185,99 +203,122 @@ function ColHeader({ col, canEdit, onRename, onColorChange, onDelete }: {
     setEditing(false);
   };
 
-  const bg = TABLE_COL_COLORS.find(c => c.value === col.color)?.bg ?? "bg-purple-900/30";
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizing.current = true;
+    startX.current = e.clientX;
+    startW.current = width;
+    const onMove = (me: MouseEvent) => {
+      if (!resizing.current) return;
+      const diff = me.clientX - startX.current;
+      onResize(col.id, Math.max(60, startW.current + diff));
+    };
+    const onUp = () => { resizing.current = false; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const colorEntry = TABLE_COL_COLORS.find(c => c.value === col.color);
 
   return (
-    <div className={`relative flex items-center gap-1.5 px-3 py-2 ${bg} border-b border-r border-purple-800/30`}>
-      {editing ? (
-        <input ref={ref} value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(col.name); setEditing(false); } }}
-          className={`font-hud text-[10px] tracking-wider bg-transparent outline-none border-b border-violet-400/50 flex-1 ${col.color}`}
-        />
-      ) : (
-        <span className={`font-hud text-[10px] tracking-wider flex-1 uppercase ${col.color} ${canEdit ? "cursor-text" : ""}`}
-          onClick={() => canEdit && setEditing(true)}>
-          {col.name}
-        </span>
-      )}
+    <th
+      className={`relative select-none border-r border-b border-gray-300 text-center group
+        ${selected ? "bg-blue-100" : "bg-[#f8f9fa] hover:bg-[#f1f3f4]"}`}
+      style={{ width, minWidth: width, maxWidth: width }}
+    >
+      <div className="flex items-center justify-center gap-1 px-1 py-1.5 h-7 cursor-pointer" onClick={onSelect}>
+        {editing ? (
+          <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(col.name); setEditing(false); } }}
+            className="text-[11px] font-mono bg-transparent outline-none border-b border-blue-500 w-full text-center text-gray-700"
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span className="text-[11px] font-semibold text-gray-600 truncate select-none leading-none"
+            onDoubleClick={() => canEdit && setEditing(true)}>
+            {col.name}
+          </span>
+        )}
+        {canEdit && !editing && (
+          <button
+            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 flex-shrink-0"
+            onClick={e => { e.stopPropagation(); setShowMenu(s => !s); }}
+          >
+            <Icon name="ChevronDown" size={11} />
+          </button>
+        )}
+      </div>
 
-      {canEdit && !editing && (
-        <button onClick={() => setShowMenu(!showMenu)}
-          className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-purple-700 hover:text-purple-400 transition-all">
-          <Icon name="MoreVertical" size={11} />
-        </button>
-      )}
+      {/* Resize handle */}
+      <div
+        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+        onMouseDown={onMouseDown}
+      />
 
       {showMenu && canEdit && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-[#110d1e] border border-purple-700/50 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
-          <div className="px-3 py-2 border-b border-purple-900/40">
-            <div className="text-[10px] font-hud tracking-widest text-purple-600 mb-2">ЦВЕТ</div>
+        <div ref={menuRef} className="absolute left-0 top-full z-50 bg-white border border-gray-200 rounded shadow-xl overflow-hidden min-w-[160px] text-left">
+          <button onClick={() => { setEditing(true); setShowMenu(false); }}
+            className="w-full text-left px-3 py-2 text-[12px] text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <Icon name="Pencil" size={12} /> Переименовать
+          </button>
+          <div className="px-3 py-2 border-t border-gray-100">
+            <div className="text-[10px] text-gray-400 mb-1.5 font-semibold uppercase tracking-wider">Цвет текста</div>
             <div className="flex flex-wrap gap-1">
               {TABLE_COL_COLORS.map(c => (
                 <button key={c.value} onClick={() => { onColorChange(col.id, c.value); setShowMenu(false); }}
-                  className={`w-5 h-5 rounded-full border-2 transition-all ${c.bg.replace("/30", "")} ${col.color === c.value ? "border-white scale-110" : "border-transparent"}`}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${c.bg.replace("/30", "")}
+                    ${col.color === c.value ? "border-gray-800 scale-110" : "border-transparent hover:border-gray-400"}`}
                   title={c.label} />
               ))}
             </div>
           </div>
-          <button onClick={() => { setEditing(true); setShowMenu(false); }}
-            className="w-full text-left px-3 py-2 text-[11px] font-mono-hud text-purple-300 hover:bg-purple-900/30 transition-all flex items-center gap-2">
-            <Icon name="Pencil" size={11} /> Переименовать
-          </button>
-          <button onClick={() => { onDelete(col.id); setShowMenu(false); }}
-            className="w-full text-left px-3 py-2 text-[11px] font-mono-hud text-red-400 hover:bg-red-900/20 transition-all flex items-center gap-2">
-            <Icon name="Trash2" size={11} /> Удалить столбец
-          </button>
+          {!AUTO_COLS.has(col.id) && (
+            <button onClick={() => { onDelete(col.id); setShowMenu(false); }}
+              className="w-full text-left px-3 py-2 text-[12px] text-red-500 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100">
+              <Icon name="Trash2" size={12} /> Удалить столбец
+            </button>
+          )}
         </div>
       )}
-    </div>
+    </th>
   );
 }
 
 // ─── HUD TABLE ────────────────────────────────────────────────
 interface HudTableProps {
   sheet: TableSheet;
-  canEditCells: boolean;    // лидер/куратор — редактирует ячейки
-  canEditStructure: boolean;// куратор орг/адм — добавляет столбцы, меняет цвет
+  canEditCells: boolean;
+  canEditStructure: boolean;
   onChange: (sheet: TableSheet) => void;
   onPenaltyChange?: (nickname: string, type: "verbal" | "reprimand", count: number, reason: string) => void;
 }
 
 export default function HudTable({ sheet, canEditCells, canEditStructure, onChange, onPenaltyChange }: HudTableProps) {
-  const [newColName, setNewColName] = useState("");
-  const [newColColor, setNewColColor] = useState("text-purple-300");
-  const [showAddCol, setShowAddCol] = useState(false);
+  const [newColName, setNewColName]   = useState("");
+  const [newColColor, setNewColColor] = useState("text-gray-700");
+  const [showAddCol, setShowAddCol]   = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+  const [selectedCol, setSelectedCol]   = useState<number | null>(null);
+  const [colWidths, setColWidths]       = useState<Record<number, number>>({});
+
+  const getWidth = (col: TableColumn) => colWidths[col.id] ?? col.width;
 
   const update = (s: TableSheet) => onChange(s);
 
-  // Ячейка
   const setCell = (rowId: number, colId: number, value: string) => {
-    update({
-      ...sheet,
-      rows: sheet.rows.map(r => r.id === rowId
-        ? { ...r, cells: { ...r.cells, [colId]: value } }
-        : r
-      ),
-    });
+    update({ ...sheet, rows: sheet.rows.map(r => r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r) });
   };
 
-  // Добавить строку
   const addRow = () => {
-    const newRow: TableRow = {
-      id: Date.now(),
-      cells: Object.fromEntries(sheet.columns.map(c => [c.id, ""])),
-    };
+    const newRow: TableRow = { id: Date.now(), cells: Object.fromEntries(sheet.columns.map(c => [c.id, ""])) };
     update({ ...sheet, rows: [...sheet.rows, newRow] });
   };
 
-  // Удалить строку
   const deleteRow = (rowId: number) => {
     update({ ...sheet, rows: sheet.rows.filter(r => r.id !== rowId) });
   };
 
-  // Добавить столбец
   const addColumn = () => {
     const trimmed = newColName.trim();
     if (!trimmed) return;
@@ -287,46 +328,34 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
     setNewColName(""); setShowAddCol(false);
   };
 
-  // Переименовать столбец
-  const renameCol = (id: number, name: string) => {
-    update({ ...sheet, columns: sheet.columns.map(c => c.id === id ? { ...c, name } : c) });
-  };
+  const renameCol   = (id: number, name: string) => update({ ...sheet, columns: sheet.columns.map(c => c.id === id ? { ...c, name } : c) });
+  const colorCol    = (id: number, color: string) => update({ ...sheet, columns: sheet.columns.map(c => c.id === id ? { ...c, color } : c) });
+  const deleteCol   = (id: number) => update({ ...sheet, columns: sheet.columns.filter(c => c.id !== id), rows: sheet.rows.map(r => { const cells = { ...r.cells }; delete cells[id]; return { ...r, cells }; }) });
+  const resizeCol   = (id: number, w: number) => setColWidths(prev => ({ ...prev, [id]: w }));
 
-  // Цвет столбца
-  const colorCol = (id: number, color: string) => {
-    update({ ...sheet, columns: sheet.columns.map(c => c.id === id ? { ...c, color } : c) });
-  };
-
-  // Удалить столбец
-  const deleteCol = (id: number) => {
-    update({
-      ...sheet,
-      columns: sheet.columns.filter(c => c.id !== id),
-      rows: sheet.rows.map(r => {
-        const cells = { ...r.cells };
-        delete cells[id];
-        return { ...r, cells };
-      }),
-    });
-  };
+  // Formula bar value
+  const selRow = selectedCell ? sheet.rows[selectedCell.r] : null;
+  const selCol = selectedCell ? sheet.columns[selectedCell.c] : null;
+  const selValue = (selRow && selCol) ? (selRow.cells[selCol.id] ?? "") : "";
+  const selAddress = selectedCell ? `${getColLetter(selectedCell.c)}${selectedCell.r + 1}` : "";
 
   return (
-    <div className="hud-panel overflow-hidden animate-fade-in">
+    <div className="flex flex-col bg-white border border-gray-300 rounded overflow-hidden shadow-sm" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Toolbar */}
-      <div className="px-5 py-3 border-b border-purple-900/40 flex items-center gap-3">
-        <Icon name="Table2" size={13} className="text-violet-400" />
-        <span className="font-hud text-xs tracking-widest text-purple-400/80">{sheet.name.toUpperCase()}</span>
-        <span className="font-mono-hud text-[10px] text-purple-800">{sheet.rows.length} строк · {sheet.columns.length} столбцов</span>
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 bg-[#f8f9fa] flex-wrap">
+        <span className="text-[12px] font-semibold text-gray-600">{sheet.name}</span>
+        <span className="text-[11px] text-gray-400">·</span>
+        <span className="text-[11px] text-gray-400">{sheet.rows.length} строк</span>
+        <div className="ml-auto flex items-center gap-1.5">
           {canEditStructure && (
             <button onClick={() => setShowAddCol(!showAddCol)}
-              className="btn-hud flex items-center gap-1.5 text-[10px] font-hud tracking-wider px-3 py-1.5 bg-purple-900/30 border border-purple-800/40 text-purple-400 rounded-lg hover:bg-purple-800/30 transition-all">
+              className="flex items-center gap-1 text-[11px] text-gray-600 hover:bg-gray-200 px-2 py-1 rounded border border-gray-300 bg-white transition-colors">
               <Icon name="Plus" size={11} /> Столбец
             </button>
           )}
           {canEditCells && (
             <button onClick={addRow}
-              className="btn-hud flex items-center gap-1.5 text-[10px] font-hud tracking-wider px-3 py-1.5 bg-violet-900/30 border border-violet-700/40 text-violet-400 rounded-lg hover:bg-violet-800/30 transition-all">
+              className="flex items-center gap-1 text-[11px] text-gray-600 hover:bg-gray-200 px-2 py-1 rounded border border-gray-300 bg-white transition-colors">
               <Icon name="Plus" size={11} /> Строка
             </button>
           )}
@@ -335,77 +364,126 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
 
       {/* Add column form */}
       {showAddCol && canEditStructure && (
-        <div className="px-5 py-3 border-b border-purple-900/30 bg-purple-950/40 flex items-center gap-2 flex-wrap">
+        <div className="px-3 py-2 border-b border-gray-200 bg-[#f1f3f4] flex items-center gap-2 flex-wrap">
           <input value={newColName} onChange={e => setNewColName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && addColumn()}
-            placeholder="Название столбца..." maxLength={24}
-            className="border border-purple-800/40 text-purple-100 text-sm px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none placeholder:text-purple-900/50 bg-transparent focus:border-violet-600/50 transition-all w-48"
+            placeholder="Название столбца..." maxLength={30}
+            className="border border-gray-300 text-gray-800 text-[12px] px-2.5 py-1.5 rounded font-mono focus:outline-none focus:border-blue-400 bg-white w-44"
           />
-          <div className="w-32">
-            <HudSelect value={newColColor} onChange={setNewColColor}
-              options={TABLE_COL_COLORS.map(c => ({ value: c.value, label: c.label, color: c.value }))} />
+          <div className="flex gap-1">
+            {TABLE_COL_COLORS.map(c => (
+              <button key={c.value} onClick={() => setNewColColor(c.value)}
+                className={`w-5 h-5 rounded-full border-2 ${c.bg.replace("/30","")} ${newColColor === c.value ? "border-gray-700 scale-110" : "border-transparent"}`}
+                title={c.label} />
+            ))}
           </div>
           <button onClick={addColumn}
-            className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-violet-700/40 border border-violet-600/40 text-violet-200 rounded-lg hover:bg-violet-700/60 transition-all">
-            ДОБАВИТЬ
+            className="text-[11px] font-semibold bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors">
+            Добавить
           </button>
-          <button onClick={() => setShowAddCol(false)}
-            className="text-[10px] text-purple-700 hover:text-purple-400 transition-all">отмена</button>
+          <button onClick={() => setShowAddCol(false)} className="text-[11px] text-gray-500 hover:text-gray-700">Отмена</button>
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-purple-800/50 scrollbar-track-transparent">
-        <table className="w-full border-collapse" style={{ minWidth: sheet.columns.length * 120 + 80 }}>
-          <thead>
-            <tr className="group">
-              <th className="w-8 px-2 py-2 bg-purple-900/20 border-b border-r border-purple-800/30 text-[10px] font-mono-hud text-purple-800">#</th>
-              {sheet.columns.map(col => (
-                <th key={col.id} className="group" style={{ minWidth: col.width }}>
-                  <ColHeader col={col} canEdit={canEditStructure}
-                    onRename={renameCol} onColorChange={colorCol} onDelete={deleteCol} />
-                </th>
+      {/* Formula bar */}
+      <div className="flex items-center border-b border-gray-200 bg-white px-2 py-0.5 gap-2 min-h-[28px]">
+        <div className="w-12 text-center text-[11px] font-mono font-semibold text-gray-500 border-r border-gray-200 pr-2 flex-shrink-0">
+          {selAddress}
+        </div>
+        <div className="text-[12px] font-mono text-gray-700 flex-1 truncate px-1">{selValue}</div>
+      </div>
+
+      {/* Sheet */}
+      <div className="overflow-auto" style={{ maxHeight: 480 }}>
+        <table className="border-collapse w-max" style={{ tableLayout: "fixed" }}>
+          <thead className="sticky top-0 z-20">
+            <tr>
+              {/* Row number header corner */}
+              <th className="bg-[#f8f9fa] border-r border-b border-gray-300 sticky left-0 z-30" style={{ width: 40, minWidth: 40 }}>
+                <div className="h-7" />
+              </th>
+              {sheet.columns.map((col, ci) => (
+                <ColHeaderCell
+                  key={col.id}
+                  col={col}
+                  letter={getColLetter(ci)}
+                  canEdit={canEditStructure && !AUTO_COLS.has(col.id)}
+                  selected={selectedCol === ci}
+                  onSelect={() => setSelectedCol(selectedCol === ci ? null : ci)}
+                  onRename={renameCol}
+                  onColorChange={colorCol}
+                  onDelete={deleteCol}
+                  width={getWidth(col)}
+                  onResize={resizeCol}
+                />
               ))}
-              {canEditCells && <th className="w-8 bg-purple-900/20 border-b border-purple-800/30" />}
+              {/* Actions column */}
+              {canEditCells && <th className="bg-[#f8f9fa] border-b border-gray-300" style={{ width: 32, minWidth: 32 }} />}
             </tr>
           </thead>
           <tbody>
             {sheet.rows.length === 0 && (
               <tr>
-                <td colSpan={sheet.columns.length + 2}
-                  className="px-4 py-8 text-center font-mono-hud text-xs text-purple-800">
-                  {canEditCells ? "Нажмите «+ Строка» чтобы добавить запись" : "Записей нет"}
+                <td colSpan={sheet.columns.length + 2} className="px-4 py-10 text-center text-[12px] text-gray-400 font-mono">
+                  {canEditCells ? 'Нажмите "+ Строка" чтобы добавить запись' : "Записей нет"}
                 </td>
               </tr>
             )}
             {sheet.rows.map((row, ri) => (
-              <tr key={row.id} className="group hover:bg-purple-900/10 transition-colors border-b border-purple-900/20">
-                <td className="text-center text-[10px] font-mono-hud text-purple-800 px-2 py-1.5 border-r border-purple-800/20">
-                  {ri + 1}
+              <tr key={row.id}
+                className={`group ${ri % 2 === 0 ? "bg-white" : "bg-[#fafafa]"} hover:bg-blue-50/40 transition-colors`}
+                style={{ height: 28 }}
+              >
+                {/* Row number */}
+                <td className="sticky left-0 z-10 border-r border-b border-gray-200 text-center bg-[#f8f9fa] group-hover:bg-[#e8eaed] transition-colors cursor-pointer select-none"
+                  style={{ width: 40, minWidth: 40 }}
+                >
+                  <span className="text-[11px] font-mono text-gray-500">{ri + 1}</span>
                 </td>
-                {sheet.columns.map(col => (
-                  <td key={col.id} className="border-r border-purple-800/10 align-middle" style={{ minWidth: col.width }}>
-                    {AUTO_COLS.has(col.id) ? (
-                      <PenaltyCell
-                        value={row.cells[col.id] ?? "0"}
-                        colId={col.id}
-                        canEdit={canEditCells && !!onPenaltyChange}
-                        onSave={(v, reason) => {
-                          const nickname = row.cells[1] ?? "";
-                          const type = col.id === COL_ID_VERBAL ? "verbal" : "reprimand";
-                          onPenaltyChange?.(nickname, type, parseInt(v) || 0, reason);
-                        }}
-                      />
-                    ) : (
-                      <Cell value={row.cells[col.id] ?? ""} readOnly={!canEditCells}
-                        onSave={v => setCell(row.id, col.id, v)} />
-                    )}
-                  </td>
-                ))}
+
+                {sheet.columns.map((col, ci) => {
+                  const isSel = selectedCell?.r === ri && selectedCell?.c === ci;
+                  const isPenalty = AUTO_COLS.has(col.id);
+                  const nick = row.cells[sheet.columns[0]?.id] ?? "";
+
+                  return (
+                    <td key={col.id}
+                      className={`relative border-r border-b border-gray-200 p-0 align-middle overflow-hidden
+                        ${isSel ? "outline outline-2 outline-blue-500 z-10" : ""}`}
+                      style={{ width: getWidth(col), minWidth: getWidth(col), maxWidth: getWidth(col), height: 28 }}
+                      onClick={() => setSelectedCell({ r: ri, c: ci })}
+                    >
+                      {isPenalty ? (
+                        <PenaltyCell
+                          value={row.cells[col.id] ?? "0"}
+                          colId={col.id}
+                          canEdit={canEditCells}
+                          onSave={(v, reason) => {
+                            setCell(row.id, col.id, v);
+                            if (onPenaltyChange) {
+                              onPenaltyChange(nick, col.id === COL_ID_VERBAL ? "verbal" : "reprimand", parseInt(v), reason);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <SheetCell
+                          value={row.cells[col.id] ?? ""}
+                          onSave={v => setCell(row.id, col.id, v)}
+                          readOnly={!canEditCells}
+                          selected={isSel}
+                          onSelect={() => setSelectedCell({ r: ri, c: ci })}
+                          colIdx={ci}
+                          rowIdx={ri}
+                        />
+                      )}
+                    </td>
+                  );
+                })}
+
                 {canEditCells && (
-                  <td className="px-2 align-middle">
+                  <td className="border-b border-gray-200 p-0 text-center" style={{ width: 32 }}>
                     <button onClick={() => deleteRow(row.id)}
-                      className="opacity-0 group-hover:opacity-100 text-purple-800 hover:text-red-400 transition-all">
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1">
                       <Icon name="X" size={12} />
                     </button>
                   </td>
@@ -414,6 +492,17 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Sheet tab bar */}
+      <div className="flex items-center border-t border-gray-200 bg-[#f8f9fa] px-2 py-1 gap-1">
+        <div className="flex items-center gap-0.5 border border-gray-300 rounded bg-white px-2 py-0.5">
+          <Icon name="Table2" size={10} className="text-blue-500" />
+          <span className="text-[11px] text-gray-700 font-medium ml-1">Лист1</span>
+        </div>
+        <button className="text-gray-400 hover:text-gray-600 p-1">
+          <Icon name="Plus" size={12} />
+        </button>
       </div>
     </div>
   );
