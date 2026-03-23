@@ -24,20 +24,20 @@ export async function apiGetPlayers(): Promise<Player[]> {
 }
 
 export async function apiSetStatus(userId: number, status: string): Promise<void> {
-  await req("POST", `/users/${userId}/status`, { status });
+  await req("POST", "/users", { action: "set_status", user_id: userId, status });
 }
 
 export async function apiAddOnline(userId: number, minutes: number): Promise<void> {
   const d = new Date();
   const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-  await req("POST", `/users/${userId}/online`, { minutes, dayIdx });
+  await req("POST", "/users", { action: "add_online", user_id: userId, minutes, dayIdx });
 }
 
 export async function apiAddPlayer(form: {
   username: string; password: string; role: string; title: string; rank: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    await req("POST", "/users", form);
+    await req("POST", "/users", { action: "add_user", ...form });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -45,11 +45,11 @@ export async function apiAddPlayer(form: {
 }
 
 export async function apiEditPlayer(userId: number, fields: Partial<Player & { password?: string }>): Promise<void> {
-  await req("PATCH", `/users/${userId}`, fields);
+  await req("POST", "/users", { action: "edit_player", user_id: userId, fields });
 }
 
 export async function apiDeletePlayer(userId: number): Promise<void> {
-  await req("DELETE", `/users/${userId}`, {});
+  await req("POST", "/users", { action: "delete_player", user_id: userId });
 }
 
 export async function apiGetOrders(): Promise<Order[]> {

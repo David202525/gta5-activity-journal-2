@@ -100,16 +100,30 @@ def handler(event: dict, context) -> dict:
         if action == 'edit_player':
             user_id = body.get('user_id')
             fields = body.get('fields', {})
-            allowed = ('username', 'rank', 'title')
-            updates = {k: v for k, v in fields.items() if k in allowed}
-            if not updates or not user_id:
+            allowed_text = ('username', 'rank', 'title', 'role')
+            allowed_int  = ('warnings',)
+            allowed_json = ('penalties',)
+
+            set_parts = []
+            vals = []
+            for k, v in fields.items():
+                if k in allowed_text:
+                    set_parts.append(f"{k} = %s")
+                    vals.append(v)
+                elif k in allowed_int:
+                    set_parts.append(f"{k} = %s")
+                    vals.append(int(v))
+                elif k in allowed_json:
+                    set_parts.append(f"{k} = %s")
+                    vals.append(json.dumps(v))
+
+            if not set_parts or not user_id:
                 return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Нет данных'})}
 
-            set_parts = ', '.join(f"{k} = %s" for k in updates)
-            vals = list(updates.values()) + [user_id]
+            vals.append(user_id)
             conn = get_conn()
             cur = conn.cursor()
-            cur.execute(f"UPDATE {SCHEMA}.users SET {set_parts} WHERE id = %s", vals)
+            cur.execute(f"UPDATE {SCHEMA}.users SET {', '.join(set_parts)} WHERE id = %s", vals)
             conn.commit()
             cur.close()
             conn.close()
@@ -217,6 +231,48 @@ def handler(event: dict, context) -> dict:
             conn = get_conn()
             cur = conn.cursor()
             cur.execute(f"UPDATE {SCHEMA}.users SET warnings = GREATEST(warnings - 1, 0) WHERE id = %s", (user_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+        # ── add_online ──────────────────────────────────────────
+        if action == 'add_online':
+            from datetime import date, timezone
+            user_id = body.get('user_id')
+            minutes = int(body.get('minutes', 1))
+            day_idx = int(body.get('dayIdx', 0))
+            conn = get_conn()
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT online_today, online_week, week_activity, last_online_date FROM {SCHEMA}.users WHERE id = %s",
+                (user_id,)
+            )
+            row = cur.fetchone()
+            if row:
+                online_today, online_week, week_activity, last_online_date = row
+                today = date.today()
+                if last_online_date and last_online_date < today:
+                    online_today = 0
+                if not week_activity:
+                    week_activity = [0, 0, 0, 0, 0, 0, 0]
+                week_activity[day_idx] = (week_activity[day_idx] or 0) + minutes
+                cur.execute(
+                    f"UPDATE {SCHEMA}.users SET online_today = %s, online_week = online_week + %s, "
+                    f"last_online_date = %s, week_activity = %s WHERE id = %s",
+                    (online_today + minutes, minutes, today, week_activity, user_id)
+                )
+                conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+        # ── delete_player ───────────────────────────────────────
+        if action == 'delete_player':
+            user_id = body.get('user_id')
+            conn = get_conn()
+            cur = conn.cursor()
+            cur.execute(f"DELETE FROM {SCHEMA}.users WHERE id = %s", (user_id,))
             conn.commit()
             cur.close()
             conn.close()

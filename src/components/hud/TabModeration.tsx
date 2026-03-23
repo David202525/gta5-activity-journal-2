@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import PlayerRow, { RoleBadge, StatusDot } from "@/components/shared/PlayerRow";
 import { Player, Role, Organization } from "@/lib/types";
@@ -46,26 +47,61 @@ interface TabUsersProps {
 }
 
 export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: TabUsersProps) {
+  const [search, setSearch] = useState("");
+
+  const baseList = viewerRole === "leader"
+    ? players.filter(p => myOrg?.memberIds.includes(p.id))
+    : players;
+
+  const filtered = search.trim()
+    ? baseList.filter(p =>
+        p.username.toLowerCase().includes(search.toLowerCase()) ||
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.rank.toLowerCase().includes(search.toLowerCase())
+      )
+    : baseList;
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="font-hud text-sm tracking-wider text-purple-400">СПИСОК УЧАСТНИКОВ</div>
+      <div className="flex items-center gap-3">
+        <div className="font-hud text-sm tracking-wider text-purple-400 flex-shrink-0">СПИСОК УЧАСТНИКОВ</div>
+        <div className="flex-1 relative">
+          <Icon name="Search" size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-700 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Поиск по нику, должности, рангу..."
+            className="w-full border border-purple-800/40 text-purple-100 text-xs px-3 py-2 pl-8 rounded-xl font-mono-hud focus:outline-none placeholder:text-purple-900/50 bg-transparent focus:border-violet-600/50 transition-all"
+          />
+          {search && (
+            <button onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-700 hover:text-purple-400 transition-colors">
+              <Icon name="X" size={11} />
+            </button>
+          )}
+        </div>
         <button onClick={onFetchPlayers}
-          className="btn-hud flex items-center gap-2 text-[11px] font-hud tracking-wider px-3 py-2 bg-purple-900/30 border border-purple-800/40 text-purple-400 rounded-xl hover:bg-purple-800/30 transition-all">
+          className="btn-hud flex items-center gap-2 text-[11px] font-hud tracking-wider px-3 py-2 bg-purple-900/30 border border-purple-800/40 text-purple-400 rounded-xl hover:bg-purple-800/30 transition-all flex-shrink-0">
           <Icon name="RefreshCw" size={11} />
           ОБНОВИТЬ
         </button>
       </div>
+      {search && (
+        <div className="text-[10px] font-mono-hud text-purple-700">
+          Найдено: {filtered.length} из {baseList.length}
+        </div>
+      )}
       <div className="hud-panel overflow-hidden py-2">
-        {(viewerRole === "leader"
-          ? players.filter(p => myOrg?.memberIds.includes(p.id))
-          : players
-        ).map((player, i) => (
-          <PlayerRow key={player.id} player={player} index={i} canEdit={true}
-            viewerRole={viewerRole}
-            onAddWarning={onAddWarning} onRemoveWarning={onRemoveWarning}
-            onEditPlayer={onEditPlayer} onRoleChange={onRoleChange} />
-        ))}
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center font-mono-hud text-xs text-purple-800">Никого не найдено</div>
+        ) : (
+          filtered.map((player, i) => (
+            <PlayerRow key={player.id} player={player} index={i} canEdit={true}
+              viewerRole={viewerRole}
+              onAddWarning={onAddWarning} onRemoveWarning={onRemoveWarning}
+              onEditPlayer={onEditPlayer} onRoleChange={onRoleChange} />
+          ))
+        )}
       </div>
     </div>
   );

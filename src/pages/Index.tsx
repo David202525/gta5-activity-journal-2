@@ -6,6 +6,7 @@ import TabContent from "@/components/hud/TabContent";
 import {
   MOCK_ORGS, MOCK_TABLE_ORG, MOCK_TABLE_ADMIN,
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
+  issuePenaltyToList,
 } from "@/lib/types";
 import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder, apiDeleteOrder } from "@/lib/api";
 
@@ -110,18 +111,26 @@ export default function Index() {
     fetchPlayers();
   };
 
-  // ── Предупреждения ────────────────────────────────────────────
+  // ── Предупреждения / взыскания ────────────────────────────────
   const handleAddWarning = async (userId: number) => {
     const player = players.find(u => u.id === userId);
     if (!player) return;
-    await apiEditPlayer(userId, { warnings: player.warnings + 1 }).catch(() => {});
+    const { newPenalties } = issuePenaltyToList(
+      player.penalties,
+      "Выдано администрацией",
+      authUser?.username ?? "Система",
+    );
+    await apiEditPlayer(userId, { warnings: player.warnings + 1, penalties: newPenalties }).catch(() => {});
     fetchPlayers();
   };
 
   const handleRemoveWarning = async (userId: number) => {
     const player = players.find(u => u.id === userId);
     if (!player) return;
-    await apiEditPlayer(userId, { warnings: Math.max(0, player.warnings - 1) }).catch(() => {});
+    const updatedPenalties = [...player.penalties];
+    const lastActive = [...updatedPenalties].reverse().find(p => p.isActive);
+    if (lastActive) lastActive.isActive = false;
+    await apiEditPlayer(userId, { warnings: Math.max(0, player.warnings - 1), penalties: updatedPenalties }).catch(() => {});
     fetchPlayers();
   };
 
@@ -160,7 +169,7 @@ export default function Index() {
     : null;
 
   const canSeeTables = canManageUsers || viewerRole === "curator_admin";
-  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || isCuratorRole(viewerRole);
+  const canSeeOrders = viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "curator" || viewerRole === "curator_admin";
 
   const TABS: { id: Tab; label: string; icon: string; visible: boolean }[] = [
     { id: "stats",         label: "Статистика",  icon: "Activity",   visible: true },
@@ -169,7 +178,7 @@ export default function Index() {
     { id: "moderation",    label: "Модерация",   icon: "Shield",     visible: canManageUsers },
     { id: "tables",        label: "Таблицы",     icon: "Table2",     visible: canSeeTables },
     { id: "orders",        label: "Приказная",   icon: "ScrollText", visible: canSeeOrders },
-    { id: "organizations", label: "Организации", icon: "Building2",  visible: isCuratorRole(viewerRole) || viewerRole === "leader" },
+    { id: "organizations", label: "Организации", icon: "Building2",  visible: viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "leader" },
     { id: "admin_panel",   label: "Панель",      icon: "Settings",   visible: canAccessAdmin },
   ].filter(t => t.visible);
 
