@@ -10,6 +10,53 @@ import {
   isCuratorRole, statusChangePenaltyReason, issuePenaltyToList, ROLE_LABELS,
 } from "@/lib/types";
 
+// ─── NORM EDITOR ─────────────────────────────────────────────
+function NormEditor({ org, onUpdate }: { org: Organization; onUpdate: (o: Organization) => void }) {
+  const [daily, setDaily]   = useState(String(org.dailyNorm ?? ""));
+  const [weekly, setWeekly] = useState(String(org.weeklyNorm ?? ""));
+
+  const save = () => {
+    onUpdate({
+      ...org,
+      dailyNorm:  daily  ? parseInt(daily)  : undefined,
+      weeklyNorm: weekly ? parseInt(weekly) : undefined,
+    });
+  };
+
+  const inputCls = "w-20 border border-purple-800/40 text-purple-100 text-xs px-2 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all";
+
+  return (
+    <div className="hud-panel p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon name="Clock" size={13} className="text-amber-400" />
+        <span className="font-hud text-xs tracking-widest text-purple-400/80">НОРМЫ ОНЛАЙНА</span>
+        <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">не касается лидера и зама</span>
+      </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-hud text-purple-600">ДНЕВНАЯ (мин):</span>
+          <input value={daily} onChange={e => setDaily(e.target.value.replace(/\D/g, ""))}
+            placeholder="60" className={inputCls} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-hud text-purple-600">НЕДЕЛЬНАЯ (мин):</span>
+          <input value={weekly} onChange={e => setWeekly(e.target.value.replace(/\D/g, ""))}
+            placeholder="300" className={inputCls} />
+        </div>
+        <button onClick={save}
+          className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-amber-900/20 border border-amber-700/30 text-amber-400 rounded-lg hover:bg-amber-800/30 transition-all">
+          СОХРАНИТЬ
+        </button>
+        {(org.dailyNorm || org.weeklyNorm) && (
+          <div className="text-[10px] font-mono-hud text-purple-700">
+            {org.dailyNorm ? `Дн: ${org.dailyNorm}м` : ""} {org.weeklyNorm ? `Нед: ${org.weeklyNorm}м` : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── ORG DETAIL ───────────────────────────────────────────────
 interface OrgDetailProps {
   org: Organization;
@@ -170,6 +217,11 @@ export default function OrgDetail({
           onSearchChange={setAddSearch}
           onAdd={handleAdd}
         />
+      )}
+
+      {/* Норма онлайна — лидер и куратор могут устанавливать */}
+      {canManage && (
+        <NormEditor org={org} onUpdate={onUpdate} />
       )}
 
       {/* Закрепить куратора — только главный куратор */}

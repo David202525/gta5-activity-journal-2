@@ -15,8 +15,16 @@ export function ProfileCard({ authUser, viewerRole, myStatus, onStatusChange }: 
       {/* Top row: avatar + info + role badge */}
       <div className="flex items-start gap-4">
         <div className="relative flex-shrink-0">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-700/50 to-purple-900/50 border border-violet-600/30 flex items-center justify-center">
-            <Icon name="User" size={22} className="text-violet-300" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-700/50 to-purple-900/50 border border-violet-600/30 flex items-center justify-center overflow-hidden">
+            {(authUser as AuthUser & { vk_photo?: string }).vk_photo ? (
+              <img
+                src={(authUser as AuthUser & { vk_photo?: string }).vk_photo}
+                alt={authUser.username}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Icon name="User" size={22} className="text-violet-300" />
+            )}
           </div>
           <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#09060f] ${STATUS_COLORS[myStatus]}`} />
         </div>

@@ -169,6 +169,27 @@ def delete_user(user_id):
     write_db(db)
     return jsonify({"ok": True})
 
+# ── Notify VK on status change from site ─────────────────────
+@app.route("/api/users/<int:user_id>/notify-vk", methods=["POST"])
+def notify_vk_status(user_id):
+    body = request.get_json() or {}
+    status = body.get("status", "offline")
+    db = read_db()
+    player = next((u for u in db["users"] if u["id"] == user_id), None)
+    if not player or not player.get("vk_id"):
+        return jsonify({"ok": False, "reason": "no vk_id"})
+
+    viewer_role  = player.get("role", "user")
+    online_lines = get_online_list(viewer_role)
+    status_text  = STATUS_LABELS.get(status, status)
+    reply = (
+        f"⚠️ {player['username']} {status_text}.\n"
+        f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")
+    )
+    # Отправляем в личку пользователю (peer_id = vk_id)
+    vk_send(player["vk_id"], reply, KEYBOARD_STATUS)
+    return jsonify({"ok": True})
+
 # ── Orders ────────────────────────────────────────────────────
 
 @app.route("/api/orders", methods=["GET"])

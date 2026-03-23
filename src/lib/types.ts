@@ -115,10 +115,12 @@ export interface Organization {
   description: string;
   leaderId: number | null;
   leaderName: string;
-  curatorId?: number | null;       // куратор закреплённый за организацией
+  curatorId?: number | null;
+  dailyNorm?: number;              // дневная норма онлайна в минутах (для рядовых)
+  weeklyNorm?: number;             // недельная норма онлайна в минутах
   memberIds: number[];
-  orgRanks: OrgRank[];             // кастомные ранги организации
-  memberRanks: Record<number, number>; // playerId → orgRankId
+  orgRanks: OrgRank[];
+  memberRanks: Record<number, number>;
   createdAt: string;
 }
 

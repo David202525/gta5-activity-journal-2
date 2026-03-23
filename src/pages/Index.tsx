@@ -8,7 +8,7 @@ import {
   AuthUser, Player, Organization, Notification, TableSheet, Order, Role, Status, Tab, isCuratorRole,
   issuePenaltyToList,
 } from "@/lib/types";
-import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder, apiDeleteOrder } from "@/lib/api";
+import { apiGetPlayers, apiSetStatus, apiEditPlayer, apiAddOnline, apiGetOrders, apiAddOrder, apiDeleteOrder, apiNotifyVkStatus } from "@/lib/api";
 
 // ── Сессия (15 минут) ────────────────────────────────────────
 const SESSION_KEY = "hud_session";
@@ -125,6 +125,8 @@ export default function Index() {
     setAuthUser(updated);
     saveSession(updated);
     fetchPlayers();
+    // Уведомляем ВК (не блокируем если нет vk_id)
+    apiNotifyVkStatus(authUser.id, status).catch(() => {});
   };
 
   // ── Предупреждения / взыскания ────────────────────────────────

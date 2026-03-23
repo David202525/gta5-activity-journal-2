@@ -57,10 +57,13 @@ export default function OrgMemberList({
                 key={player.id}
                 player={player}
                 isLeader={player.id === org.leaderId}
+                isDeputy={player.role === "deputy"}
                 canManage={canManage}
                 issuerName={issuerName}
                 orgRanks={orgRanks}
                 memberRankId={memberRanks[player.id]}
+                dailyNorm={org.dailyNorm}
+                weeklyNorm={org.weeklyNorm}
                 onRemoveFromOrg={onRemoveFromOrg}
                 onPenaltyUpdate={onPenaltyUpdate}
                 onStatusChange={onStatusChange}

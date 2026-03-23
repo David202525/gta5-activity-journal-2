@@ -25,10 +25,13 @@ function PenaltyBadge({ type }: { type: Penalty["type"] }) {
 interface OrgMemberRowProps {
   player: Player;
   isLeader: boolean;
+  isDeputy?: boolean;
   canManage: boolean;
   issuerName: string;
   orgRanks: OrgRank[];
   memberRankId?: number;
+  dailyNorm?: number;
+  weeklyNorm?: number;
   onRemoveFromOrg?: (id: number) => void;
   onPenaltyUpdate?: (id: number, penalties: Penalty[], excluded: boolean) => void;
   onStatusChange?: (id: number, fromStatus: Status, toStatus: Status) => void;
@@ -36,10 +39,29 @@ interface OrgMemberRowProps {
 }
 
 export default function OrgMemberRow({
-  player, isLeader, canManage, issuerName, orgRanks, memberRankId,
+  player, isLeader, isDeputy, canManage, issuerName, orgRanks, memberRankId,
+  dailyNorm, weeklyNorm,
   onRemoveFromOrg, onPenaltyUpdate, onStatusChange, onRankAssign,
 }: OrgMemberRowProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Цвет онлайна по норме (только для рядовых, не лидер/зам)
+  const isExempt = isLeader || isDeputy;
+  const dailyColor = (() => {
+    if (isExempt || !dailyNorm) return "text-purple-300";
+    const pct = player.onlineToday / dailyNorm;
+    if (pct >= 1)    return "text-emerald-400";
+    if (pct >= 0.5)  return "text-yellow-400";
+    if (pct > 0)     return "text-orange-400";
+    return "text-red-400";
+  })();
+  const weeklyColor = (() => {
+    if (!weeklyNorm) return "text-purple-300";
+    const pct = player.onlineWeek / weeklyNorm;
+    if (pct >= 1)    return "text-emerald-400";
+    if (pct >= 0.5)  return "text-yellow-400";
+    return "text-red-400";
+  })();
 
   const penalties = player.penalties ?? [];
   const activePenalties = penalties.filter(p => p.isActive);
@@ -90,7 +112,9 @@ export default function OrgMemberRow({
 
         <div className="hidden sm:flex flex-col items-end">
           <span className={`text-xs font-mono-hud ${statusColor}`}>{STATUS_LABELS[player.status]}</span>
-          <span className="text-[10px] text-purple-800 font-mono-hud">{formatTime(player.onlineToday)} сегодня</span>
+          <span className={`text-[10px] font-mono-hud ${dailyColor}`}>
+            {formatTime(player.onlineToday)}{dailyNorm && !isExempt ? ` / ${formatTime(dailyNorm)}` : ""} сегодня
+          </span>
         </div>
         <div className="text-right hidden md:block w-20">
           <div className="font-hud text-sm neon-gold">LVL {player.level}</div>
@@ -104,10 +128,18 @@ export default function OrgMemberRow({
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "ОНЛАЙН СЕГОДНЯ", val: formatTime(player.onlineToday), cls: "text-purple-300" },
-              { label: "ОНЛАЙН НЕДЕЛЯ",  val: formatTime(player.onlineWeek),  cls: "text-purple-300" },
-              { label: "СТАТУС",         val: STATUS_LABELS[player.status],   cls: statusColor },
-              { label: "ВЗЫСКАНИЙ",      val: activePenalties.length > 0 ? String(activePenalties.length) : "—",
+              {
+                label: "ОНЛАЙН СЕГОДНЯ",
+                val: dailyNorm && !isExempt ? `${formatTime(player.onlineToday)} / ${formatTime(dailyNorm)}` : formatTime(player.onlineToday),
+                cls: dailyColor,
+              },
+              {
+                label: "ОНЛАЙН НЕДЕЛЯ",
+                val: weeklyNorm ? `${formatTime(player.onlineWeek)} / ${formatTime(weeklyNorm)}` : formatTime(player.onlineWeek),
+                cls: weeklyColor,
+              },
+              { label: "СТАТУС", val: STATUS_LABELS[player.status], cls: statusColor },
+              { label: "ВЗЫСКАНИЙ", val: activePenalties.length > 0 ? String(activePenalties.length) : "—",
                 cls: activePenalties.length > 0 ? "neon-red" : "text-purple-800" },
             ].map((item, i) => (
               <div key={i}>
