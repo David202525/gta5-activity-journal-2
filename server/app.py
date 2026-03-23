@@ -436,33 +436,55 @@ FACTION_ROLES_SET = {"user", "leader", "deputy"}
 ADMIN_ROLES_SET   = {"admin", "curator", "curator_admin", "curator_faction"}
 
 def broadcast_status(player, cmd):
-    """Отправляем сообщение о смене статуса в нужные беседы."""
-    settings = read_settings()
-    chat_faction = settings.get("chat_faction")
-    chat_admin   = settings.get("chat_admin")
+    """
+    Рассылаем уведомление о смене статуса в личку каждому кто должен это видеть.
+    Фракционные видят только фракционных.
+    Администрация видит только администрацию.
+    Куратор фракций видит фракционных.
+    Главный куратор видит всех.
+    """
+    db = read_db()
     role = player.get("role", "user")
-
-    # Список онлайн для фракционной беседы (только фракционные)
-    faction_lines = get_online_list("leader")   # leader видит только фракционных
-    # Список онлайн для админской беседы (только админы)
-    admin_lines   = get_online_list("curator_admin")  # curator_admin видит только адм
-
     status_text = STATUS_LABELS.get(cmd, cmd)
 
-    # Куратор фракций видит фракционных — получает в свою беседу
-    # Игрок/лидер/зам отмечается → сообщение в фракционную беседу
-    if role in FACTION_ROLES_SET:
-        if chat_faction:
-            lines = faction_lines
-            reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-            vk_send(chat_faction, reply, KEYBOARD_STATUS)
+    # Кто отмечается — фракция или администрация?
+    is_faction = role in FACTION_ROLES_SET
+    is_admin   = role in ADMIN_ROLES_SET
 
-    # Администратор/куратор отмечается → сообщение в админскую беседу
-    elif role in ADMIN_ROLES_SET:
-        if chat_admin:
-            lines = admin_lines
-            reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-            vk_send(chat_admin, reply, KEYBOARD_STATUS)
+    # Список онлайн который увидит получатель — зависит от его роли
+    def make_reply(viewer_role):
+        lines = get_online_list(viewer_role)
+        return f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+
+    # Рассылаем каждому привязанному пользователю
+    for u in db["users"]:
+        recipient_vk = u.get("vk_id")
+        if not recipient_vk:
+            continue
+        if recipient_vk == player.get("vk_id"):
+            continue  # себе не отправляем
+
+        r = u.get("role", "user")
+
+        # Главный куратор видит всех
+        if r == "curator":
+            vk_send(recipient_vk, make_reply("curator"), KEYBOARD_STATUS)
+
+        # Куратор фракций видит только фракционных
+        elif r == "curator_faction" and is_faction:
+            vk_send(recipient_vk, make_reply("curator_faction"), KEYBOARD_STATUS)
+
+        # Куратор администрации видит только администрацию
+        elif r == "curator_admin" and is_admin:
+            vk_send(recipient_vk, make_reply("curator_admin"), KEYBOARD_STATUS)
+
+        # Администратор видит только администрацию
+        elif r == "admin" and is_admin:
+            vk_send(recipient_vk, make_reply("admin"), KEYBOARD_STATUS)
+
+        # Игрок/лидер/зам видит только фракционных
+        elif r in FACTION_ROLES_SET and is_faction:
+            vk_send(recipient_vk, make_reply("user"), KEYBOARD_STATUS)
 
 ADMIN_ROLES    = {"admin", "curator", "curator_admin", "curator_faction"}
 FACTION_ROLES  = {"user", "leader", "deputy"}
@@ -532,10 +554,12 @@ def vk_webhook():
     msg_id   = msg.get("conversation_message_id") or msg.get("id")
     raw_text = msg.get("text", "").strip()
     import re
-    # Убираем упоминание группы: [club123|текст] или @club123
-    raw_text = re.sub(r'^\[club\d+\|[^\]]*\]\s*', '', raw_text).strip()
-    raw_text = re.sub(r'^@club\d+\s*', '', raw_text).strip()
-    text     = raw_text.lower()
+    # Убираем упоминание группы: [club123|текст] или @club123 в любом месте строки
+    raw_text = re.sub(r'\[club\d+\|[^\]]*\]\s*', '', raw_text).strip()
+    raw_text = re.sub(r'@club\d+\s*', '', raw_text).strip()
+    # Также убираем упоминания пользователей [id123|Имя]
+    raw_text = re.sub(r'\[id\d+\|[^\]]*\]\s*', '', raw_text).strip()
+    text     = raw_text.lower().strip()
     peer_id  = msg.get("peer_id")
     vk_id    = msg.get("from_id")
 
