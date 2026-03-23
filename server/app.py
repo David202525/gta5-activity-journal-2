@@ -281,30 +281,11 @@ def notify_vk_status(user_id):
     status = body.get("status", "offline")
     db = read_db()
     player = next((u for u in db["users"] if u["id"] == user_id), None)
-    if not player or not player.get("vk_id"):
-        return jsonify({"ok": False, "reason": "no vk_id"})
+    if not player:
+        return jsonify({"ok": False, "reason": "not found"})
 
-    do_set_status(user_id, status)
-    db2 = read_db()
-    player2 = next((u for u in db2["users"] if u["id"] == user_id), player)
-
-    settings = read_settings()
-    chat_faction = settings.get("chat_faction")
-    chat_admin   = settings.get("chat_admin")
-    role = player2.get("role", "user")
-    has_chat = (role in FACTION_ROLES_SET and chat_faction) or (role in ADMIN_ROLES_SET and chat_admin)
-
-    if has_chat:
-        broadcast_status(player2, status)
-    else:
-        # Если беседа не настроена — шлём в личку
-        status_text  = STATUS_LABELS.get(status, status)
-        online_lines = get_online_list(role)
-        reply = (
-            f"⚠️ {player2['username']} {status_text}.\n"
-            f"На сервере:\n" + ("\n".join(online_lines) if online_lines else "никого нет")
-        )
-        vk_send(player2["vk_id"], reply, KEYBOARD_STATUS)
+    # Отправляем только в беседу — личные сообщения не трогаем
+    broadcast_status(player, status)
     return jsonify({"ok": True})
 
 # ── Orders ────────────────────────────────────────────────────
