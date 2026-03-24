@@ -5,9 +5,14 @@
 """
 import json
 import os
+import time
 import psycopg2
 import urllib.request
 import urllib.parse
+
+# Кэш обработанных event_id для защиты от дублей (ВК может слать retry)
+_processed_events: dict[str, float] = {}
+_EVENT_TTL = 60  # секунд
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -160,6 +165,18 @@ def handler(event: dict, context) -> dict:
 
     if body.get('type') != 'message_new':
         return {'statusCode': 200, 'headers': CORS, 'body': 'ok'}
+
+    # Защита от дублей: ВК повторяет запрос если не получил ответ вовремя
+    event_id = body.get('event_id', '')
+    if event_id:
+        now = time.time()
+        # Чистим старые записи
+        expired = [k for k, v in _processed_events.items() if now - v > _EVENT_TTL]
+        for k in expired:
+            del _processed_events[k]
+        if event_id in _processed_events:
+            return {'statusCode': 200, 'headers': CORS, 'body': 'ok'}
+        _processed_events[event_id] = now
 
     msg     = body.get('object', {}).get('message', {})
     text    = msg.get('text', '').strip().lower()
