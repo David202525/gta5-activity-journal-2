@@ -20,6 +20,8 @@ interface HudTableProps {
 
 export default function HudTable({ sheet, canEditCells, canEditStructure, onChange, onPenaltyChange }: HudTableProps) {
   const [sel, setSel]               = useState<{ r: number; c: number } | null>(null);
+  const [selColAll, setSelColAll]   = useState<number | null>(null);
+  const [selRowAll, setSelRowAll]   = useState<number | null>(null);
   const [editing, setEditing]       = useState<{ r: number; c: number } | null>(null);
   const [editValue, setEditValue]   = useState("");
   const [colWidths, setColWidths]   = useState<Record<number, number>>({});
@@ -177,13 +179,15 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
     { label: "До текущего столбца", fn: () => sel && setFrozenCols(sel.c + 1) },
   ];
 
+  const clearSelection = () => { setSelColAll(null); setSelRowAll(null); };
+
   return (
     <div className="flex flex-col bg-white border border-gray-300 rounded shadow overflow-hidden"
-      style={{ fontFamily: "Arial,sans-serif", fontSize: 12 }}
+      style={{ fontFamily: "Calibri,Arial,sans-serif", fontSize: 12 }}
       tabIndex={0} onKeyDown={onKey} ref={containerRef}>
 
-      {/* ── Toolbar ── */}
-      <div className="flex items-center gap-0.5 px-2 border-b border-gray-200 bg-white flex-wrap" style={{ minHeight: 38 }}>
+      {/* ── Excel ribbon ── */}
+      <div className="flex items-center gap-0.5 px-2 border-b border-gray-300 bg-[#f4f4f4] flex-wrap" style={{ minHeight: 38 }}>
         <TBtn onClick={undo} title="Отменить (Ctrl+Z)"><Icon name="Undo2" size={14} /></TBtn>
         <TBtn onClick={redo} title="Повторить (Ctrl+Y)"><Icon name="Redo2" size={14} /></TBtn>
         <div className="w-px h-5 bg-gray-200 mx-0.5" />
@@ -298,25 +302,28 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
           <table className="border-collapse" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
             <thead className="sticky top-0 z-20">
               <tr style={{ height: HEADER_H }}>
-                {/* Corner cell */}
-                <th className="sticky left-0 z-30 bg-[#f8f9fa] border-r border-b border-gray-300 select-none"
-                  style={{ width: 46, minWidth: 46 }}>
+                {/* Corner cell — select all */}
+                <th
+                  className="sticky left-0 z-30 border-r border-b select-none cursor-pointer"
+                  style={{ width: 46, minWidth: 46, background: "#e2e3e5", borderColor: "#bfc0c1" }}
+                  onClick={() => { clearSelection(); setSel(null); }}
+                >
                   <div className="h-full flex items-center justify-center">
-                    <Icon name="LayoutGrid" size={10} className="text-gray-400" />
+                    <Icon name="LayoutGrid" size={10} className="text-gray-500" />
                   </div>
                 </th>
                 {sheet.columns.map((col, ci) => (
                   <ColHead key={col.id} col={col} ci={ci} width={getW(col)}
                     canEdit={canEditStructure && !AUTO_COLS.has(col.id)}
-                    frozen={ci < frozenCols} selected={sel?.c === ci}
-                    onSelect={() => setSel({ r: 0, c: ci })}
+                    frozen={ci < frozenCols} selected={selColAll === ci || sel?.c === ci}
+                    onSelect={() => { setSelColAll(ci); setSelRowAll(null); setSel({ r: 0, c: ci }); }}
                     onRename={renameCol} onDelete={delCol}
                     onResizeStart={onResizeStart}
                     onSortAsc={() => sortCol(col.id, true)}
                     onSortDesc={() => sortCol(col.id, false)}
                   />
                 ))}
-                <th className="bg-[#f8f9fa] border-b border-gray-300" style={{ width: 28 }} />
+                <th className="border-b" style={{ width: 28, background: "#e2e3e5", borderColor: "#bfc0c1" }} />
               </tr>
             </thead>
             <tbody>
@@ -328,38 +335,50 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
                 </tr>
               )}
               {sheet.rows.map((row, ri) => {
-                const isFRow = ri < frozenRows;
+                const isFRow   = ri < frozenRows;
+                const isRowSel = selRowAll === ri;
                 return (
                   <tr key={row.id} style={{ height: ROW_H }}
-                    className={`group ${ri % 2 === 0 ? "bg-white" : "bg-[#fafafa]"} hover:bg-[#e8f0fe]/20`}>
-                    {/* Row number */}
-                    <td className={`sticky left-0 z-10 border-r border-b border-gray-200 text-center select-none
-                        ${isFRow ? "bg-[#c8e6c9]" : "bg-[#f8f9fa] group-hover:bg-[#e8eaed]"}`}
-                      style={{ width: 46, minWidth: 46, height: ROW_H }}>
-                      <span className="text-[11px] font-mono text-gray-500">{ri + 1}</span>
+                    className={`group ${ri % 2 === 0 ? "bg-white" : "bg-[#f9f9f9]"}`}>
+                    {/* Row number — click selects whole row */}
+                    <td
+                      className={`sticky left-0 z-10 border-r border-b text-center select-none cursor-pointer
+                        ${isFRow ? "" : ""} ${isRowSel ? "bg-[#bdd7ee]" : "bg-[#e2e3e5] group-hover:bg-[#d0d1d3]"}`}
+                      style={{ width: 46, minWidth: 46, height: ROW_H, borderColor: "#bfc0c1",
+                        ...(isFRow ? { background: "#c6efce" } : {}) }}
+                      onClick={() => { setSelRowAll(ri); setSelColAll(null); setSel({ r: ri, c: 0 }); }}
+                    >
+                      <span className={`text-[11px] font-mono ${isRowSel ? "font-bold text-gray-800" : "text-gray-500"}`}>{ri + 1}</span>
                     </td>
 
                     {sheet.columns.map((col, ci) => {
-                      const isEd   = editing?.r === ri && editing?.c === ci;
-                      const isSel  = sel?.r === ri && sel?.c === ci;
-                      const isFCol = ci < frozenCols;
-                      const isPen  = AUTO_COLS.has(col.id);
-                      const raw    = row.cells[col.id] ?? "";
-                      const disp   = evalFormula(raw);
-                      const st     = gs(row.id, col.id);
-                      const nick   = row.cells[sheet.columns[0]?.id] ?? "";
+                      const isEd      = editing?.r === ri && editing?.c === ci;
+                      const isSel     = sel?.r === ri && sel?.c === ci && !selColAll && !selRowAll;
+                      const isColHigh = selColAll === ci;
+                      const isRowHigh = selRowAll === ri;
+                      const isFCol    = ci < frozenCols;
+                      const isPen     = AUTO_COLS.has(col.id);
+                      const raw       = row.cells[col.id] ?? "";
+                      const disp      = evalFormula(raw);
+                      const st        = gs(row.id, col.id);
+                      const nick      = row.cells[sheet.columns[0]?.id] ?? "";
+
+                      let bgOverride: string | undefined;
+                      if (isColHigh || isRowHigh) bgOverride = "#bdd7ee";
+                      else if (isFRow) bgOverride = "#ebf5e8";
+                      else if (isFCol) bgOverride = "#fef9e7";
 
                       return (
                         <td key={col.id}
-                          className={`relative border-r border-b border-gray-200 p-0 overflow-visible
+                          className={`relative border-r border-b p-0 overflow-visible
                             ${isFRow || isFCol ? "z-10" : ""}
                             ${isSel ? "outline outline-2 outline-[#1a73e8] z-20" : ""}`}
                           style={{
                             width: getW(col), minWidth: getW(col), maxWidth: getW(col), height: ROW_H,
-                            ...(isFRow ? { background: "#f1f8e9" } : {}),
-                            ...(isFCol ? { background: "#fff8e1" } : {}),
+                            borderColor: "#d0d0d0",
+                            ...(bgOverride ? { background: bgOverride } : {}),
                           }}
-                          onClick={() => { setSel({ r: ri, c: ci }); if (editing?.r !== ri || editing?.c !== ci) cancelEdit(); }}
+                          onClick={() => { clearSelection(); setSel({ r: ri, c: ci }); if (editing?.r !== ri || editing?.c !== ci) cancelEdit(); }}
                           onDoubleClick={() => startEdit(ri, ci)}
                         >
                           {isPen ? (
@@ -377,7 +396,7 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
                                 if (e.key === "Tab") { e.preventDefault(); commitEdit(); setSel({ r: ri, c: Math.min(ci + 1, sheet.columns.length - 1) }); }
                                 if (e.key === "Escape") cancelEdit();
                               }}
-                              className="absolute inset-0 w-full h-full px-2 text-[12px] outline outline-2 outline-[#1a73e8] bg-white z-30 font-mono"
+                              className="absolute inset-0 w-full h-full px-2 text-[12px] outline outline-2 outline-[#1a73e8] bg-white z-30"
                               style={buildCellStyle(st)}
                             />
                           ) : (
@@ -390,7 +409,7 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
                     })}
 
                     {/* Delete row button */}
-                    <td className="border-b border-gray-200 text-center" style={{ width: 28 }}>
+                    <td className="border-b text-center" style={{ width: 28, borderColor: "#d0d0d0" }}>
                       {canEditCells && (
                         <button onClick={() => delRow(row.id)}
                           className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 p-1">
@@ -406,11 +425,11 @@ export default function HudTable({ sheet, canEditCells, canEditStructure, onChan
         </div>
       </div>
 
-      {/* ── Sheet tab ── */}
-      <div className="flex items-center border-t border-gray-300 bg-[#f8f9fa] px-2 py-1 gap-1" style={{ minHeight: 28 }}>
-        <div className="flex items-center gap-1 border border-gray-300 rounded-sm bg-white px-2 py-0.5 select-none">
-          <Icon name="Table2" size={10} className="text-[#0f9d58]" />
-          <span className="text-[11px] text-gray-700 font-medium ml-0.5">{sheet.name}</span>
+      {/* ── Sheet tabs (Excel-style) ── */}
+      <div className="flex items-end border-t border-gray-300 bg-[#e9e9e9] px-2 gap-0" style={{ minHeight: 26 }}>
+        <div className="flex items-center gap-1 border border-b-0 border-gray-400 bg-white px-3 py-0.5 select-none rounded-t-sm -mb-px z-10">
+          <Icon name="Table2" size={10} className="text-[#217346]" />
+          <span className="text-[11px] text-gray-800 font-medium ml-0.5">{sheet.name}</span>
         </div>
       </div>
     </div>

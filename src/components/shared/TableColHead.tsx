@@ -45,11 +45,15 @@ export function ColHead({
 
   return (
     <th
-      className={`relative select-none border-r border-b border-gray-300 group p-0
-        ${frozen ? "bg-[#e8f4e8]" : selected ? "bg-[#d2e3fc]" : "bg-[#f8f9fa] hover:bg-[#f1f3f4]"}`}
-      style={{ width, minWidth: width, maxWidth: width, height: HEADER_H }}
+      className={`relative select-none border-r border-b group p-0
+        ${frozen ? "bg-[#c6efce]" : selected ? "bg-[#bdd7ee]" : "bg-[#e2e3e5] hover:bg-[#d0d1d3]"}`}
+      style={{ width, minWidth: width, maxWidth: width, height: HEADER_H, borderColor: "#bfc0c1" }}
     >
-      <div className="flex items-center justify-center h-full px-1 cursor-pointer gap-0.5" onClick={onSelect}>
+      {/* Letter row (A, B, C…) */}
+      <div className="flex flex-col items-center justify-center h-full px-1 cursor-pointer gap-0" onClick={onSelect}>
+        <span className={`text-[9px] font-mono leading-none mb-0.5 ${selected ? "text-gray-800 font-bold" : "text-gray-400"}`}>
+          {colLetter(ci)}
+        </span>
         {editing ? (
           <input ref={inputRef} value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -58,21 +62,21 @@ export function ColHead({
               if (e.key === "Enter") commit();
               if (e.key === "Escape") { setDraft(col.name); setEditing(false); }
             }}
-            className="text-[11px] font-mono bg-transparent outline-none border-b border-blue-500 w-full text-center text-gray-700"
+            className="text-[11px] bg-transparent outline-none border-b border-blue-500 w-full text-center text-gray-800 font-medium"
             onClick={e => e.stopPropagation()}
           />
         ) : (
           <span
-            className="text-[11px] font-semibold text-gray-600 truncate leading-none"
-            style={{ maxWidth: width - 20 }}
+            className={`text-[11px] font-medium truncate leading-none ${selected ? "text-gray-900 font-bold" : "text-gray-700"}`}
+            style={{ maxWidth: width - 16 }}
             onDoubleClick={() => canEdit && setEditing(true)}
           >
-            {colLetter(ci)} · {col.name}
+            {col.name}
           </span>
         )}
         {canEdit && !editing && (
           <button
-            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 flex-shrink-0"
+            className="absolute right-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-800 flex-shrink-0"
             onClick={e => { e.stopPropagation(); setShowMenu(s => !s); }}
           >
             <Icon name="ChevronDown" size={10} />
@@ -82,7 +86,7 @@ export function ColHead({
 
       {/* Resize handle */}
       <div
-        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize z-10 hover:bg-blue-400"
+        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize z-10 hover:bg-[#217346]"
         onMouseDown={e => onResizeStart(col.id, e)}
       />
 
