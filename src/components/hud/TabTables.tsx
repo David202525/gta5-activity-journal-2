@@ -114,13 +114,16 @@ export default function TabTables({
               </span>
             )}
           </div>
-          <HudTable
-            sheet={orgTableSynced}
-            canEditCells={canEditOrgCells}
-            canEditStructure={canEditOrgStructure}
-            onChange={onOrgTableChange}
-            onPenaltyChange={handlePenaltyChange}
-          />
+          <div className="rounded-xl overflow-hidden border border-purple-900/40" style={{ height: 480 }}>
+            <iframe
+              src="https://docs.google.com/spreadsheets/d/1a8bPuVyyDWixTKYSlsMLcNBsE5yC8-pNLJeh-wZvN7c/edit?usp=sharing&rm=minimal"
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              allowFullScreen
+              title="Таблица организации"
+            />
+          </div>
         </div>
       )}
 
