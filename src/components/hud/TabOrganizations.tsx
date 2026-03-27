@@ -4,6 +4,7 @@ import { RoleBadge } from "@/components/shared/PlayerRow";
 import OrgList from "@/components/hud/OrgList";
 import AdminStaffPanel from "@/components/hud/AdminStaffPanel";
 import AdminRolesPanel from "@/components/hud/AdminRolesPanel";
+import { apiGetSettings, apiUpdateSettings } from "@/lib/api";
 import {
   AuthUser, Player, Organization, Notification, Role, isCuratorRole,
 } from "@/lib/types";
@@ -147,10 +148,10 @@ function VkChatSettings() {
   const [extraChats, setExtraChats]   = useState<{ id: string; label: string; link: string }[]>([]);
 
   useEffect(() => {
-    fetch("/api/settings").then(r => r.json()).then(s => {
+    apiGetSettings().then(s => {
       setChatFaction(String(s.chat_faction ?? ""));
       setChatAdmin(String(s.chat_admin ?? ""));
-      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats.map((c: { id: string; label: string }) => ({ ...c, link: c.id })));
+      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats.map(c => ({ ...c, link: c.id })));
     }).catch(() => {});
   }, []);
 
@@ -160,14 +161,10 @@ function VkChatSettings() {
   };
 
   const save = async () => {
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_faction: chatFaction ? parseInt(chatFaction) : null,
-        chat_admin:   chatAdmin   ? parseInt(chatAdmin)   : null,
-        extra_chats:  extraChats.filter(c => c.id.trim()).map(({ label, id }) => ({ label, id })),
-      }),
+    await apiUpdateSettings({
+      chat_faction: chatFaction ? parseInt(chatFaction) : null,
+      chat_admin:   chatAdmin   ? parseInt(chatAdmin)   : null,
+      extra_chats:  extraChats.filter(c => c.id.trim()).map(({ label, id }) => ({ label, id })),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

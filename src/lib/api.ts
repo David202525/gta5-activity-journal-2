@@ -111,10 +111,16 @@ export async function apiUpdateTable(scope: "org" | "admin", table: TableSheet):
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────
-export async function apiGetSettings(): Promise<{ chat_faction: number | null; chat_admin: number | null }> {
+export interface SettingsData {
+  chat_faction: number | null;
+  chat_admin: number | null;
+  extra_chats: { id: string; label: string }[];
+}
+
+export async function apiGetSettings(): Promise<SettingsData> {
   return await req("GET", "/settings");
 }
 
-export async function apiUpdateSettings(s: { chat_faction?: number | null; chat_admin?: number | null }): Promise<void> {
+export async function apiUpdateSettings(s: Partial<SettingsData>): Promise<void> {
   await req("PATCH", "/settings", s);
 }
