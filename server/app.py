@@ -610,6 +610,11 @@ def vk_webhook():
     peer_id  = msg.get("peer_id")
     vk_id    = msg.get("from_id")
 
+    # Команда !peer_id — узнать peer_id беседы
+    if text in ("!peer_id", "peer_id", "!пиринг", "!id"):
+        vk_send(peer_id, f"📌 peer_id этой беседы: {peer_id}\n\nВставь это число в панели сайта в нужное поле беседы.")
+        return "ok", 200
+
     # Команда !кто — начало привязки
     if text in ("!кто", "кто", "!who", "начать", "start", "привязать"):
         db = read_db()
