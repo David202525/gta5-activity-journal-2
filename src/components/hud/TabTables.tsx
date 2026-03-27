@@ -96,7 +96,7 @@ export default function TabTables({
   return (
     <div className="space-y-5 animate-fade-in -mx-4 px-4 md:-mx-8 md:px-8">
       {canSeeOrg && (
-        <div className="flex flex-col" style={{ height: "calc(100vh - 180px)" }}>
+        <div className="flex flex-col" style={{ height: "calc(100vh - 120px)" }}>
           <div className="flex items-center gap-2 mb-3 flex-shrink-0">
             <Icon name="Building2" size={13} className="text-violet-400" />
             <span className="font-hud text-sm tracking-wider text-purple-400">ТАБЛИЦА ОРГАНИЗАЦИИ</span>
@@ -112,7 +112,7 @@ export default function TabTables({
           </div>
           <div className="flex-1 rounded-xl overflow-hidden border border-purple-900/40 shadow-[0_0_30px_rgba(139,92,246,0.08)]">
             <iframe
-              src="https://docs.google.com/spreadsheets/d/1a8bPuVyyDWixTKYSlsMLcNBsE5yC8-pNLJeh-wZvN7c/edit?usp=sharing&rm=minimal"
+              src="https://docs.google.com/spreadsheets/d/1a8bPuVyyDWixTKYSlsMLcNBsE5yC8-pNLJeh-wZvN7c/edit?usp=sharing"
               width="100%"
               height="100%"
               frameBorder="0"
