@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import Icon from "@/components/ui/icon";
 import HudTable from "@/components/shared/HudTable";
 import {
@@ -37,6 +38,11 @@ export default function TabTables({
   orgTable, adminTable, onOrgTableChange, onAdminTableChange,
   onUpdatePlayer, onNotify,
 }: TabTablesProps) {
+  const iframeWrapRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => { document.body.style.overflow = "hidden"; };
+  const handleMouseLeave = () => { document.body.style.overflow = ""; };
+
   const canSeeAdmin     = viewerRole === "curator" || viewerRole === "curator_admin";
   const canSeeOrg       = viewerRole === "leader" || viewerRole === "curator" || viewerRole === "curator_faction" || viewerRole === "admin";
   const canEditOrgStructure   = viewerRole === "curator" || viewerRole === "curator_faction";
@@ -110,7 +116,13 @@ export default function TabTables({
               <Icon name="ExternalLink" size={11} /> Открыть в Google
             </a>
           </div>
-          <div className="flex-1 rounded-xl overflow-hidden border border-purple-900/40 shadow-[0_0_30px_rgba(139,92,246,0.08)]">
+          <div
+            ref={iframeWrapRef}
+            className="flex-1 rounded-xl overflow-hidden border border-purple-900/40 shadow-[0_0_30px_rgba(139,92,246,0.08)]"
+            style={{ pointerEvents: "auto" }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <iframe
               src="https://docs.google.com/spreadsheets/d/1a8bPuVyyDWixTKYSlsMLcNBsE5yC8-pNLJeh-wZvN7c/edit?usp=sharing"
               width="100%"
@@ -118,6 +130,7 @@ export default function TabTables({
               frameBorder="0"
               allowFullScreen
               title="Таблица организации"
+              style={{ display: "block", overscrollBehavior: "contain" }}
             />
           </div>
         </div>
