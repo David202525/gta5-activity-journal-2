@@ -269,21 +269,63 @@ def update_table(scope):
 def get_settings():
     return jsonify(read_settings())
 
+def vk_join_chat(invite_link):
+    """Бот вступает в беседу по ссылке-приглашению и возвращает chat_id (peer_id)."""
+    # Извлекаем хэш из ссылки вида https://vk.me/join/HASH или https://vk.com/invite/HASH
+    import re
+    m = re.search(r'vk\.me/join/([^/?#]+)|vk\.com/invite/([^/?#]+)', invite_link)
+    if not m:
+        return None
+    link_hash = m.group(1) or m.group(2)
+    params = urllib.parse.urlencode({
+        "link": f"https://vk.me/join/{link_hash}",
+        "access_token": VK_TOKEN,
+        "v": "5.131",
+    })
+    url = "https://api.vk.com/method/messages.joinChatByInviteLink?" + params
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = json.loads(resp.read().decode())
+        chat_id = data.get("response", {}).get("chat_id")
+        if chat_id:
+            return 2000000000 + int(chat_id)
+    except Exception as e:
+        print(f"VK join chat error: {e}")
+    return None
+
+def resolve_peer_id(value):
+    """Если value — ссылка vk.me/join/..., вступаем и возвращаем peer_id. Иначе пробуем int."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    s = str(value).strip()
+    if s.isdigit():
+        return int(s)
+    if "vk.me/join/" in s or "vk.com/invite/" in s:
+        return vk_join_chat(s)
+    # ссылка вида vk.com/im?sel=cNNN
+    import re
+    m = re.search(r'[?&]sel=c(\d+)', s)
+    if m:
+        return 2000000000 + int(m.group(1))
+    return None
+
 @app.route("/api/settings", methods=["PATCH"])
 def update_settings():
     body = request.get_json() or {}
     s = read_settings()
     if "chat_faction" in body:
-        s["chat_faction"] = body["chat_faction"]
+        s["chat_faction"] = resolve_peer_id(body["chat_faction"])
     if "chat_admin" in body:
-        s["chat_admin"] = body["chat_admin"]
+        s["chat_admin"] = resolve_peer_id(body["chat_admin"])
     if "extra_chats" in body and isinstance(body["extra_chats"], list):
         s["extra_chats"] = [
-            {"id": str(c.get("id", ""))[:20], "label": str(c.get("label", ""))[:64]}
+            {"id": str(resolve_peer_id(c.get("id", "")) or ""), "label": str(c.get("label", ""))[:64]}
             for c in body["extra_chats"] if isinstance(c, dict)
         ][:20]
     write_settings(s)
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "settings": s})
 
 # ── Notify VK on status change from site ─────────────────────
 @app.route("/api/users/<int:user_id>/notify-vk", methods=["POST"])
