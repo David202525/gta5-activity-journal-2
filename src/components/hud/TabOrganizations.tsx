@@ -129,11 +129,13 @@ function VkChatSettings() {
   const [chatFaction, setChatFaction] = useState("");
   const [chatAdmin, setChatAdmin]     = useState("");
   const [saved, setSaved]             = useState(false);
+  const [extraChats, setExtraChats]   = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(s => {
       setChatFaction(String(s.chat_faction ?? ""));
       setChatAdmin(String(s.chat_admin ?? ""));
+      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats);
     }).catch(() => {});
   }, []);
 
@@ -144,11 +146,17 @@ function VkChatSettings() {
       body: JSON.stringify({
         chat_faction: chatFaction ? parseInt(chatFaction) : null,
         chat_admin:   chatAdmin   ? parseInt(chatAdmin)   : null,
+        extra_chats:  extraChats.filter(c => c.id.trim()),
       }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const addExtra = () => setExtraChats(p => [...p, { id: "", label: "" }]);
+  const removeExtra = (i: number) => setExtraChats(p => p.filter((_, idx) => idx !== i));
+  const updateExtra = (i: number, field: "id" | "label", val: string) =>
+    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, [field]: field === "id" ? val.replace(/\D/g, "") : val } : c));
 
   const inputCls = "flex-1 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all";
 
@@ -170,7 +178,38 @@ function VkChatSettings() {
           <input value={chatAdmin} onChange={e => setChatAdmin(e.target.value.replace(/\D/g, ""))}
             placeholder="2000000002" className={inputCls} />
         </div>
-        <div className="flex items-center gap-3">
+
+        {extraChats.length > 0 && (
+          <div className="mt-1 space-y-2 border-t border-purple-900/30 pt-3">
+            <span className="text-[10px] font-hud text-purple-500 tracking-widest">ДОПОЛНИТЕЛЬНЫЕ БЕСЕДЫ:</span>
+            {extraChats.map((chat, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  value={chat.label}
+                  onChange={e => updateExtra(i, "label", e.target.value)}
+                  placeholder="Название (необязательно)"
+                  className="w-36 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all"
+                />
+                <input
+                  value={chat.id}
+                  onChange={e => updateExtra(i, "id", e.target.value)}
+                  placeholder="peer_id"
+                  className={inputCls}
+                />
+                <button onClick={() => removeExtra(i)}
+                  className="p-1.5 rounded-lg text-red-500/60 hover:text-red-400 hover:bg-red-900/20 transition-all">
+                  <Icon name="X" size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-1">
+          <button onClick={addExtra}
+            className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-purple-900/20 border border-purple-700/30 text-purple-400 rounded-lg hover:bg-purple-800/30 transition-all flex items-center gap-1.5">
+            <Icon name="Plus" size={10} /> ДОБАВИТЬ БЕСЕДУ
+          </button>
           <button onClick={save}
             className="btn-hud text-[10px] font-hud tracking-wider px-4 py-1.5 bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-lg hover:bg-emerald-800/40 transition-all">
             СОХРАНИТЬ
