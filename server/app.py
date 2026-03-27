@@ -23,9 +23,12 @@ SETTINGS_FILE = "/opt/hud_data/settings.json"
 
 def read_settings():
     if not os.path.exists(SETTINGS_FILE):
-        return {"chat_faction": None, "chat_admin": None}
+        return {"chat_faction": None, "chat_admin": None, "extra_chats": []}
     with open(SETTINGS_FILE, "r") as f:
-        return json.load(f)
+        s = json.load(f)
+    if "extra_chats" not in s:
+        s["extra_chats"] = []
+    return s
 
 def write_settings(s):
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
@@ -270,7 +273,15 @@ def get_settings():
 def update_settings():
     body = request.get_json() or {}
     s = read_settings()
-    s.update({k: v for k, v in body.items() if k in ("chat_faction", "chat_admin")})
+    if "chat_faction" in body:
+        s["chat_faction"] = body["chat_faction"]
+    if "chat_admin" in body:
+        s["chat_admin"] = body["chat_admin"]
+    if "extra_chats" in body and isinstance(body["extra_chats"], list):
+        s["extra_chats"] = [
+            {"id": str(c.get("id", ""))[:20], "label": str(c.get("label", ""))[:64]}
+            for c in body["extra_chats"] if isinstance(c, dict)
+        ][:20]
     write_settings(s)
     return jsonify({"ok": True})
 
