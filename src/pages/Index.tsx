@@ -103,7 +103,7 @@ export default function Index() {
   // ── Опрос каждые 10 сек ───────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
-    const poll = setInterval(() => { fetchPlayers(); fetchOrders(); }, 4_000);
+    const poll = setInterval(() => { fetchPlayers(); fetchOrders(); fetchOrgs(); }, 4_000);
     return () => clearInterval(poll);
   }, [authUser]);
 
