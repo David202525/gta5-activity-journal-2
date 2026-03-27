@@ -99,7 +99,7 @@ export default function TabContent({
       />
     );
 
-  if (activeTab === "organizations" && (viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy"))
+  if (activeTab === "organizations" && (viewerRole === "curator" || viewerRole === "curator_admin" || viewerRole === "curator_faction" || viewerRole === "leader" || viewerRole === "deputy" || viewerRole === "user"))
     return (
       <TabOrganizations
         viewerRole={viewerRole} authUser={authUser}
