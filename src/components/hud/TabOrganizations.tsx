@@ -125,19 +125,39 @@ export function TabAdminPanel({
 }
 
 // ─── VK CHAT SETTINGS ────────────────────────────────────────
+function parseVkLink(input: string): string {
+  const trimmed = input.trim();
+  // Уже peer_id число
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  // Ссылка-приглашение vk.me/join/... — нельзя получить peer_id из неё напрямую, вернём как есть для подсказки
+  // Ссылка на беседу vk.com/im?sel=cXXX
+  const selMatch = trimmed.match(/[?&]sel=c(\d+)/i);
+  if (selMatch) return String(2000000000 + parseInt(selMatch[1]));
+  // Группа vk.com/clubXXX или vk.com/publicXXX
+  const clubMatch = trimmed.match(/vk\.com\/(?:club|public)(\d+)/i);
+  if (clubMatch) return String(-parseInt(clubMatch[1]));
+  // Короткое имя группы vk.com/название — вернём пустым, нужен ID
+  return "";
+}
+
 function VkChatSettings() {
   const [chatFaction, setChatFaction] = useState("");
   const [chatAdmin, setChatAdmin]     = useState("");
   const [saved, setSaved]             = useState(false);
-  const [extraChats, setExtraChats]   = useState<{ id: string; label: string }[]>([]);
+  const [extraChats, setExtraChats]   = useState<{ id: string; label: string; link: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(s => {
       setChatFaction(String(s.chat_faction ?? ""));
       setChatAdmin(String(s.chat_admin ?? ""));
-      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats);
+      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats.map((c: { id: string; label: string }) => ({ ...c, link: c.id })));
     }).catch(() => {});
   }, []);
+
+  const handleLinkInput = (val: string, setter: (v: string) => void) => {
+    const parsed = parseVkLink(val);
+    setter(parsed || val);
+  };
 
   const save = async () => {
     await fetch("/api/settings", {
@@ -146,17 +166,21 @@ function VkChatSettings() {
       body: JSON.stringify({
         chat_faction: chatFaction ? parseInt(chatFaction) : null,
         chat_admin:   chatAdmin   ? parseInt(chatAdmin)   : null,
-        extra_chats:  extraChats.filter(c => c.id.trim()),
+        extra_chats:  extraChats.filter(c => c.id.trim()).map(({ label, id }) => ({ label, id })),
       }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const addExtra = () => setExtraChats(p => [...p, { id: "", label: "" }]);
+  const addExtra = () => setExtraChats(p => [...p, { id: "", label: "", link: "" }]);
   const removeExtra = (i: number) => setExtraChats(p => p.filter((_, idx) => idx !== i));
-  const updateExtra = (i: number, field: "id" | "label", val: string) =>
-    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, [field]: field === "id" ? val.replace(/\D/g, "") : val } : c));
+  const updateExtraLink = (i: number, val: string) => {
+    const parsed = parseVkLink(val);
+    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, link: val, id: parsed || val.replace(/\D/g, "") } : c));
+  };
+  const updateExtraLabel = (i: number, val: string) =>
+    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, label: val } : c));
 
   const inputCls = "flex-1 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all";
 
@@ -165,40 +189,52 @@ function VkChatSettings() {
       <div className="flex items-center gap-2 mb-4">
         <Icon name="MessageSquare" size={13} className="text-green-400" />
         <span className="font-hud text-xs tracking-widest text-purple-400/80">БЕСЕДЫ ВКонтакте</span>
-        <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">peer_id беседы</span>
       </div>
+
       <div className="mb-4 rounded-lg border border-purple-900/30 bg-purple-950/20 p-3 space-y-1.5">
         <div className="flex items-center gap-1.5 mb-2">
           <Icon name="Info" size={11} className="text-purple-400" />
-          <span className="text-[10px] font-hud tracking-widest text-purple-400">КАК УЗНАТЬ PEER_ID БЕСЕДЫ</span>
+          <span className="text-[10px] font-hud tracking-widest text-purple-400">КАК ДОБАВИТЬ БЕСЕДУ ИЛИ ГРУППУ</span>
         </div>
         <div className="flex items-start gap-2">
           <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">1.</span>
-          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Открой беседу в VK через браузер (не приложение)</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">
+            Вставь ссылку-приглашение: <span className="text-cyan-400">vk.me/join/FFob...</span>
+            — откроется беседа, добавь бота и он пришлёт peer_id
+          </span>
         </div>
         <div className="flex items-start gap-2">
           <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">2.</span>
-          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">В адресной строке найди: <span className="text-cyan-400">vk.com/im?sel=c<span className="text-yellow-400">145</span></span> — число после "c" это номер беседы</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">
+            Или вставь ссылку на беседу из браузера: <span className="text-cyan-400">vk.com/im?sel=c<span className="text-yellow-400">145</span></span> → peer_id рассчитается автоматически
+          </span>
         </div>
         <div className="flex items-start gap-2">
           <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">3.</span>
-          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Прибавь <span className="text-green-400">2000000000</span> к номеру → пример: c<span className="text-yellow-400">145</span> = <span className="text-green-400">2000000145</span></span>
-        </div>
-        <div className="flex items-start gap-2">
-          <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">★</span>
-          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Или: добавь бота в беседу и напиши любое сообщение — бот сам пришлёт peer_id</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">
+            Для группы: ссылка <span className="text-cyan-400">vk.com/club<span className="text-yellow-400">12345</span></span> или просто вставь <span className="text-green-400">peer_id</span> числом напрямую
+          </span>
         </div>
       </div>
+
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-hud text-cyan-400 w-32">БЕСЕДА ФРАКЦИЙ:</span>
-          <input value={chatFaction} onChange={e => setChatFaction(e.target.value.replace(/\D/g, ""))}
-            placeholder="2000000001" className={inputCls} />
+          <input
+            value={chatFaction}
+            onChange={e => handleLinkInput(e.target.value, setChatFaction)}
+            placeholder="Ссылка или peer_id"
+            className={inputCls}
+          />
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-hud text-violet-400 w-32">БЕСЕДА АДМИНОВ:</span>
-          <input value={chatAdmin} onChange={e => setChatAdmin(e.target.value.replace(/\D/g, ""))}
-            placeholder="2000000002" className={inputCls} />
+          <input
+            value={chatAdmin}
+            onChange={e => handleLinkInput(e.target.value, setChatAdmin)}
+            placeholder="Ссылка или peer_id"
+            className={inputCls}
+          />
         </div>
 
         {extraChats.length > 0 && (
@@ -208,16 +244,19 @@ function VkChatSettings() {
               <div key={i} className="flex items-center gap-2">
                 <input
                   value={chat.label}
-                  onChange={e => updateExtra(i, "label", e.target.value)}
-                  placeholder="Название (необязательно)"
+                  onChange={e => updateExtraLabel(i, e.target.value)}
+                  placeholder="Название"
                   className="w-36 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all"
                 />
                 <input
-                  value={chat.id}
-                  onChange={e => updateExtra(i, "id", e.target.value)}
-                  placeholder="peer_id"
+                  value={chat.link || chat.id}
+                  onChange={e => updateExtraLink(i, e.target.value)}
+                  placeholder="Ссылка или peer_id"
                   className={inputCls}
                 />
+                {chat.id && chat.link !== chat.id && (
+                  <span className="text-[9px] font-mono-hud text-green-500 whitespace-nowrap">→ {chat.id}</span>
+                )}
                 <button onClick={() => removeExtra(i)}
                   className="p-1.5 rounded-lg text-red-500/60 hover:text-red-400 hover:bg-red-900/20 transition-all">
                   <Icon name="X" size={12} />

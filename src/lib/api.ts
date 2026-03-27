@@ -2,10 +2,22 @@ import { Player, AuthUser, Order, Organization, TableSheet } from "./types";
 
 const BASE = `/api`;
 
+function getToken(): string {
+  try {
+    const raw = localStorage.getItem("hud_session") || "";
+    if (!raw) return "";
+    const { user } = JSON.parse(raw);
+    return user?.token ?? "";
+  } catch { return ""; }
+}
+
 async function req<T>(method: string, path: string, body?: object): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: method !== "GET" ? JSON.stringify(body ?? {}) : undefined,
   });
   const data = await res.json();
