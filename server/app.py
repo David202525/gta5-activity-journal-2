@@ -558,6 +558,28 @@ def vk_webhook():
         obj     = body.get("object", {})
         peer_id = obj.get("peer_id") or obj.get("chat_id", 0) + 2000000000
         vk_id   = obj.get("user_id") or obj.get("from_id")
+
+        # Если бот сам вступил в беседу — сохраняем peer_id и сообщаем его
+        bot_vk_id = obj.get("member_id") or 0
+        if bot_vk_id < 0 and peer_id:
+            # Отрицательный member_id = это группа/бот вступил
+            s = read_settings()
+            if not s.get("chat_faction"):
+                s["chat_faction"] = peer_id
+                write_settings(s)
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА ФРАКЦИЙ.\npeer_id = {peer_id}\n\nВставь это число в панели сайта в поле «БЕСЕДА ФРАКЦИЙ».")
+            elif not s.get("chat_admin"):
+                s["chat_admin"] = peer_id
+                write_settings(s)
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА АДМИНОВ.\npeer_id = {peer_id}\n\nВставь это число в панели сайта в поле «БЕСЕДА АДМИНОВ».")
+            else:
+                extra = s.get("extra_chats", [])
+                extra.append({"id": str(peer_id), "label": f"Беседа {len(extra)+1}"})
+                s["extra_chats"] = extra
+                write_settings(s)
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе как дополнительная.\npeer_id = {peer_id}")
+            return "ok", 200
+
         if vk_id and vk_id > 0:
             db = read_db()
             already = any(u.get("vk_id") == vk_id for u in db["users"])
