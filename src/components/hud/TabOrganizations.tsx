@@ -167,6 +167,28 @@ function VkChatSettings() {
         <span className="font-hud text-xs tracking-widest text-purple-400/80">БЕСЕДЫ ВКонтакте</span>
         <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">peer_id беседы</span>
       </div>
+      <div className="mb-4 rounded-lg border border-purple-900/30 bg-purple-950/20 p-3 space-y-1.5">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Icon name="Info" size={11} className="text-purple-400" />
+          <span className="text-[10px] font-hud tracking-widest text-purple-400">КАК УЗНАТЬ PEER_ID БЕСЕДЫ</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">1.</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Открой беседу в VK через браузер (не приложение)</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">2.</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">В адресной строке найди: <span className="text-cyan-400">vk.com/im?sel=c<span className="text-yellow-400">145</span></span> — число после "c" это номер беседы</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">3.</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Прибавь <span className="text-green-400">2000000000</span> к номеру → пример: c<span className="text-yellow-400">145</span> = <span className="text-green-400">2000000145</span></span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] font-hud text-violet-500 w-4 flex-shrink-0">★</span>
+          <span className="text-[10px] font-mono-hud text-purple-300/70 leading-relaxed">Или: добавь бота в беседу и напиши любое сообщение — бот сам пришлёт peer_id</span>
+        </div>
+      </div>
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-hud text-cyan-400 w-32">БЕСЕДА ФРАКЦИЙ:</span>
