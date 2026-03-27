@@ -456,11 +456,7 @@ def broadcast_status(player, cmd):
         reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(chat_admin, reply, KEYBOARD_STATUS)
 
-        # Главный куратор и куратор фракций тоже видят беседу фракций
-        if role == "curator" and chat_faction:
-            lines_f = get_online_list("leader")
-            reply_f = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines_f) if lines_f else "никого нет")
-            vk_send(chat_faction, reply_f, KEYBOARD_STATUS)
+
 
 ADMIN_ROLES    = {"admin", "curator", "curator_admin", "curator_faction"}
 FACTION_ROLES  = {"user", "leader", "deputy"}
