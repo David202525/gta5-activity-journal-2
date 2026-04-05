@@ -71,11 +71,15 @@ export default function Index() {
       const curStatus = myStatusRef.current;
       if (curUser) {
         const fresh = list.find(p => p.id === curUser.id);
-        if (fresh && fresh.status !== curStatus) {
-          setMyStatus(fresh.status as Status);
-          const updated = { ...curUser, ...fresh, token: curUser.token };
-          setAuthUser(updated);
-          saveSession(updated);
+        if (fresh) {
+          const statusChanged = fresh.status !== curStatus;
+          const roleChanged = fresh.role !== curUser.role;
+          if (statusChanged) setMyStatus(fresh.status as Status);
+          if (statusChanged || roleChanged) {
+            const updated = { ...curUser, ...fresh, token: curUser.token };
+            setAuthUser(updated);
+            saveSession(updated);
+          }
         }
       }
     } catch { /* сервер недоступен */ }
