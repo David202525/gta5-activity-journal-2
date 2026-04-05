@@ -37,6 +37,7 @@ interface TabContentProps {
   onOrgCreated: (org: Organization) => void;
   onDeleteOrg?: (id: number) => void;
   onRoleChange?: (id: number, role: Role) => void;
+  onChangePassword?: (id: number, newPassword: string) => void;
   onStatusChange?: (id: number, status: "online" | "afk" | "offline") => void;
   orgTable: TableSheet;
   adminTable: TableSheet;
@@ -52,7 +53,7 @@ export default function TabContent({
   selectedOrgId, loadingPlayers, myOrg,
   canManageUsers, canAccessAdmin, canSeeFullStats,
   onlinePlayers, afkPlayers, totalOnlineToday,
-  sorted, myRank, onRoleChange,
+  sorted, myRank, onRoleChange, onChangePassword,
   orgTable, adminTable, onOrgTableChange, onAdminTableChange,
   orders, onAddOrder, onDeleteOrder,
   onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onStatusChange, onDeleteOrg,
@@ -74,7 +75,7 @@ export default function TabContent({
         players={players} viewerRole={viewerRole} myOrg={myOrg}
         onFetchPlayers={onFetchPlayers} onAddWarning={onAddWarning}
         onRemoveWarning={onRemoveWarning} onEditPlayer={onEditPlayer}
-        onRoleChange={onRoleChange}
+        onRoleChange={onRoleChange} onChangePassword={onChangePassword}
       />
     );
 

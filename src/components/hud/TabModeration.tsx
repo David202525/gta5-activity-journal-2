@@ -44,9 +44,10 @@ interface TabUsersProps {
   onRemoveWarning: (id: number) => void;
   onEditPlayer: (id: number, fields: { username?: string; rank?: string }) => void;
   onRoleChange?: (id: number, role: Role) => void;
+  onChangePassword?: (id: number, newPassword: string) => void;
 }
 
-export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: TabUsersProps) {
+export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange, onChangePassword }: TabUsersProps) {
   const [search, setSearch] = useState("");
 
   const baseList = viewerRole === "leader"
@@ -99,7 +100,8 @@ export function TabUsers({ players, viewerRole, myOrg, onFetchPlayers, onAddWarn
             <PlayerRow key={player.id} player={player} index={i} canEdit={true}
               viewerRole={viewerRole}
               onAddWarning={onAddWarning} onRemoveWarning={onRemoveWarning}
-              onEditPlayer={onEditPlayer} onRoleChange={onRoleChange} />
+              onEditPlayer={onEditPlayer} onRoleChange={onRoleChange}
+              onChangePassword={onChangePassword} />
           ))
         )}
       </div>

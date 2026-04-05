@@ -50,13 +50,14 @@ export function StatCard({ label, value, icon, sub, delay = 0 }: {
   );
 }
 
-export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange }: {
+export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWarning, onRemoveWarning, onEditPlayer, onRoleChange, onChangePassword }: {
   player: Player; index: number; canEdit: boolean;
   viewerRole?: Role;
   onAddWarning?: (id: number, reason: string) => void;
   onRemoveWarning?: (id: number) => void;
   onEditPlayer?: (id: number, fields: { username?: string; rank?: string; title?: string; vk_id?: number | null }) => void;
   onRoleChange?: (id: number, role: Role) => void;
+  onChangePassword?: (id: number, newPassword: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
@@ -65,6 +66,10 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
   const [editingRole, setEditingRole] = useState(false);
   const [editingVkId, setEditingVkId] = useState(false);
   const [addingWarning, setAddingWarning] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [warningReason, setWarningReason] = useState("");
   const [draftName, setDraftName] = useState(player.username);
   const [draftTitle, setDraftTitle] = useState(player.title);
@@ -371,6 +376,61 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
                         className="text-[10px] text-purple-800 hover:text-purple-400 px-1 transition-colors">
                         ✕
                       </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Смена пароля — только куратору */}
+              {onChangePassword && canEditThis && (
+                <div onClick={e => e.stopPropagation()}>
+                  {!changingPassword ? (
+                    <button onClick={() => { setChangingPassword(true); setTimeout(() => passwordRef.current?.focus(), 50); }}
+                      className="btn-hud flex items-center gap-1.5 text-[10px] font-hud tracking-wider px-3 py-1.5 bg-blue-900/20 border border-blue-700/40 text-blue-400 rounded-lg hover:bg-blue-800/30 transition-all">
+                      <Icon name="KeyRound" size={11} /> СМЕНИТЬ ПАРОЛЬ
+                    </button>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div className="text-[10px] font-hud tracking-widest text-blue-400/80">НОВЫЙ ПАРОЛЬ ДЛЯ {player.username.toUpperCase()}</div>
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          ref={passwordRef}
+                          type="password"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="Новый пароль..."
+                          maxLength={64}
+                          className="flex-1 min-w-[140px] border border-blue-800/40 text-purple-100 text-[11px] px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none placeholder:text-purple-900/50 bg-transparent focus:border-blue-600/50 transition-all"
+                        />
+                        <input
+                          type="password"
+                          value={newPasswordConfirm}
+                          onChange={e => setNewPasswordConfirm(e.target.value)}
+                          placeholder="Повторите пароль..."
+                          maxLength={64}
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && newPassword && newPassword === newPasswordConfirm) {
+                              onChangePassword(player.id, newPassword);
+                              setNewPassword(""); setNewPasswordConfirm(""); setChangingPassword(false);
+                            }
+                            if (e.key === "Escape") { setNewPassword(""); setNewPasswordConfirm(""); setChangingPassword(false); }
+                          }}
+                          className="flex-1 min-w-[140px] border border-blue-800/40 text-purple-100 text-[11px] px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none placeholder:text-purple-900/50 bg-transparent focus:border-blue-600/50 transition-all"
+                        />
+                        <button
+                          disabled={!newPassword || newPassword !== newPasswordConfirm}
+                          onClick={() => { onChangePassword(player.id, newPassword); setNewPassword(""); setNewPasswordConfirm(""); setChangingPassword(false); }}
+                          className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/25 transition-all disabled:opacity-40">
+                          СОХРАНИТЬ
+                        </button>
+                        <button onClick={() => { setNewPassword(""); setNewPasswordConfirm(""); setChangingPassword(false); }}
+                          className="text-[10px] text-purple-800 hover:text-purple-400 px-1.5 transition-colors">
+                          ✕
+                        </button>
+                      </div>
+                      {newPassword && newPasswordConfirm && newPassword !== newPasswordConfirm && (
+                        <div className="text-[10px] text-red-400/70 font-hud">Пароли не совпадают</div>
+                      )}
                     </div>
                   )}
                 </div>

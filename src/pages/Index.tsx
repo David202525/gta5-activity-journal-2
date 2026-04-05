@@ -212,6 +212,11 @@ export default function Index() {
     fetchPlayers();
   };
 
+  // ── Смена пароля куратором ────────────────────────────────────
+  const handleChangePassword = async (userId: number, newPassword: string) => {
+    await apiEditPlayer(userId, { password: newPassword } as Partial<Player>).catch(() => {});
+  };
+
   // ── Экран входа ───────────────────────────────────────────────
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
 
@@ -354,6 +359,7 @@ export default function Index() {
           onOrgCreated={handleOrgCreated}
           onDeleteOrg={handleDeleteOrg}
           onRoleChange={handleRoleChange}
+          onChangePassword={handleChangePassword}
           onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); fetchPlayers(); }}
           orgTable={orgTable}
           adminTable={adminTable}
