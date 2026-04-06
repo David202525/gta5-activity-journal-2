@@ -122,6 +122,16 @@ def set_status(user_id):
         if u["id"] == user_id:
             prev = u.get("status", "offline")
             # Считаем минуты сессии
+            # Сброс недельной статистики если началась новая неделя
+            last_date_str = u.get("last_online_date")
+            if last_date_str:
+                from datetime import timedelta
+                last_date = date.fromisoformat(last_date_str)
+                last_monday = last_date - timedelta(days=last_date.weekday())
+                this_monday = date.today() - timedelta(days=date.today().weekday())
+                if this_monday > last_monday:
+                    u["weekActivity"] = [0]*7
+                    u["onlineWeek"] = 0
             if prev == "online" and u.get("session_start"):
                 try:
                     start = datetime.fromisoformat(u["session_start"])
@@ -153,6 +163,16 @@ def add_online(user_id):
     db = read_db()
     for u in db["users"]:
         if u["id"] == user_id:
+            # Сброс недельной статистики если началась новая неделя
+            last_date_str = u.get("last_online_date")
+            if last_date_str:
+                from datetime import timedelta
+                last_date = date.fromisoformat(last_date_str)
+                last_monday = last_date - timedelta(days=last_date.weekday())
+                this_monday = date.today() - timedelta(days=date.today().weekday())
+                if this_monday > last_monday:
+                    u["weekActivity"] = [0]*7
+                    u["onlineWeek"] = 0
             if u.get("last_online_date") != today_str:
                 u["onlineToday"] = 0
             u["onlineToday"] = u.get("onlineToday", 0) + minutes
@@ -445,6 +465,16 @@ def do_set_status(user_id, status):
     for u in db["users"]:
         if u["id"] == user_id:
             prev = u.get("status", "offline")
+            # Сброс недельной статистики если началась новая неделя
+            last_date_str = u.get("last_online_date")
+            if last_date_str:
+                from datetime import timedelta
+                last_date = date.fromisoformat(last_date_str)
+                last_monday = last_date - timedelta(days=last_date.weekday())
+                this_monday = date.today() - timedelta(days=date.today().weekday())
+                if this_monday > last_monday:
+                    u["weekActivity"] = [0]*7
+                    u["onlineWeek"] = 0
             if prev == "online" and u.get("session_start"):
                 try:
                     start = datetime.fromisoformat(u["session_start"])
