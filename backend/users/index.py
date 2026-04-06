@@ -102,6 +102,13 @@ def handler(event: dict, context) -> dict:
                 today = date.today()
                 if last_online_date and last_online_date < today:
                     online_today = 0
+                # Сброс недельной статистики если началась новая неделя (с Пн)
+                if last_online_date:
+                    last_monday = last_online_date - __import__('datetime').timedelta(days=last_online_date.weekday())
+                    this_monday = today - __import__('datetime').timedelta(days=today.weekday())
+                    if this_monday > last_monday:
+                        week_activity = [0, 0, 0, 0, 0, 0, 0]
+                        online_week = 0
                 minutes_to_add = 0
                 if prev_status == 'online' and session_start:
                     if session_start.tzinfo is None:
