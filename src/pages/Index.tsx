@@ -74,8 +74,10 @@ export default function Index() {
         if (fresh) {
           const statusChanged = fresh.status !== curStatus;
           const roleChanged = fresh.role !== curUser.role;
+          const weekChanged = fresh.onlineWeek !== curUser.onlineWeek ||
+            JSON.stringify(fresh.weekActivity) !== JSON.stringify(curUser.weekActivity);
           if (statusChanged) setMyStatus(fresh.status as Status);
-          if (statusChanged || roleChanged) {
+          if (statusChanged || roleChanged || weekChanged) {
             const updated = { ...curUser, ...fresh, token: curUser.token };
             setAuthUser(updated);
             saveSession(updated);
