@@ -121,6 +121,11 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
     setEditingVkId(false);
   };
 
+  const resetVkBinding = () => {
+    onEditPlayer?.(player.id, { vk_id: null, vk_peer_id: null } as never);
+    setDraftVkId("");
+  };
+
   const commitName = () => {
     const trimmed = draftName.trim();
     if (trimmed && trimmed !== player.username) onEditPlayer?.(player.id, { username: trimmed });
@@ -277,7 +282,7 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
             </div>
           </div>
           {canEdit && canEditThis && (
-            <div className="mt-2 mb-2" onClick={e => e.stopPropagation()}>
+            <div className="mt-2 mb-2 space-y-1.5" onClick={e => e.stopPropagation()}>
               <div className="flex items-center gap-2">
                 <Icon name="MessageCircle" size={11} className="text-purple-700 flex-shrink-0" />
                 <span className="text-[10px] font-hud tracking-widest text-purple-700">VK ID</span>
@@ -285,7 +290,7 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
                   <span
                     className="text-[10px] font-mono-hud text-purple-500 cursor-text hover:text-violet-300 transition-colors"
                     onClick={() => setEditingVkId(true)}
-                    title="Нажмите для привязки VK ID"
+                    title="Нажмите для изменения VK ID"
                   >
                     {draftVkId || "не привязан"}
                   </span>
@@ -300,7 +305,22 @@ export default function PlayerRow({ player, index, canEdit, viewerRole, onAddWar
                     className="text-[10px] font-mono-hud bg-purple-900/50 border border-violet-600/50 rounded-md px-2 py-0.5 outline-none w-32 text-purple-100 focus:border-violet-400/70"
                   />
                 )}
+                {draftVkId && canEditThis && (
+                  <button onClick={resetVkBinding}
+                    className="text-[9px] font-hud px-2 py-0.5 rounded-md border border-red-700/40 text-red-400/70 hover:text-red-400 hover:bg-red-900/20 transition-all">
+                    СБРОС
+                  </button>
+                )}
               </div>
+              {(player as Player & { vk_peer_id?: number | null }).vk_peer_id && (
+                <div className="flex items-center gap-2">
+                  <Icon name="Hash" size={11} className="text-purple-700 flex-shrink-0" />
+                  <span className="text-[10px] font-hud tracking-widest text-purple-700">БЕСЕДА</span>
+                  <span className="text-[10px] font-mono-hud text-cyan-600">
+                    {(player as Player & { vk_peer_id?: number | null }).vk_peer_id}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           {canEdit && (
