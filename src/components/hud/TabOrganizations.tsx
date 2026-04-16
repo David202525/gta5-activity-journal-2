@@ -4,7 +4,7 @@ import { RoleBadge } from "@/components/shared/PlayerRow";
 import OrgList from "@/components/hud/OrgList";
 import AdminStaffPanel from "@/components/hud/AdminStaffPanel";
 import AdminRolesPanel from "@/components/hud/AdminRolesPanel";
-import { apiGetSettings, apiUpdateSettings } from "@/lib/api";
+import { apiGetSettings, apiUpdateSettings, apiGetSettings2, apiUpdateSettings2 } from "@/lib/api";
 import {
   AuthUser, Player, Organization, Notification, Role, isCuratorRole,
 } from "@/lib/types";
@@ -121,6 +121,7 @@ export function TabAdminPanel({
       />
 
       {isMainCurator && <VkChatSettings />}
+      {isMainCurator && <VkChatSettings2 />}
     </div>
   );
 }
@@ -264,6 +265,95 @@ function VkChatSettings() {
           <span className="text-[10px] font-mono-hud text-purple-800 ml-auto">
             peer_id = 2000000000 + номер_беседы
           </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VkChatSettings2() {
+  const [chatAdmin, setChatAdmin]     = useState("");
+  const [saved, setSaved]             = useState(false);
+  const [extraChats, setExtraChats]   = useState<{ id: string; label: string; link: string }[]>([]);
+
+  useEffect(() => {
+    apiGetSettings2().then(s => {
+      setChatAdmin(String(s.chat_admin ?? ""));
+      if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats.map(c => ({ ...c, link: c.id })));
+    }).catch(() => {});
+  }, []);
+
+  const handleLinkInput = (val: string, setter: (v: string) => void) => {
+    const parsed = parseVkLink(val);
+    setter(parsed || val);
+  };
+
+  const save = async () => {
+    await apiUpdateSettings2({
+      chat_admin: chatAdmin ? parseInt(chatAdmin) : null,
+      extra_chats: extraChats.filter(c => c.id.trim()).map(({ label, id }) => ({ label, id })),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const addExtra = () => setExtraChats(p => [...p, { id: "", label: "", link: "" }]);
+  const removeExtra = (i: number) => setExtraChats(p => p.filter((_, idx) => idx !== i));
+  const updateExtraLink = (i: number, val: string) => {
+    const parsed = parseVkLink(val);
+    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, link: val, id: parsed || val.replace(/\D/g, "") } : c));
+  };
+  const updateExtraLabel = (i: number, val: string) =>
+    setExtraChats(p => p.map((c, idx) => idx === i ? { ...c, label: val } : c));
+
+  const inputCls = "flex-1 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all";
+
+  return (
+    <div className="hud-panel p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Icon name="MessageSquare" size={13} className="text-cyan-400" />
+        <span className="font-hud text-xs tracking-widest text-purple-400/80">БЕСЕДЫ ВКонтакте (Бот 2)</span>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-hud text-cyan-400 w-32">ОСНОВНАЯ БЕСЕДА:</span>
+          <input value={chatAdmin} onChange={e => handleLinkInput(e.target.value, setChatAdmin)}
+            placeholder="Ссылка или peer_id" className={inputCls} />
+        </div>
+
+        {extraChats.length > 0 && (
+          <div className="mt-1 space-y-2 border-t border-purple-900/30 pt-3">
+            <span className="text-[10px] font-hud text-purple-500 tracking-widest">ДОПОЛНИТЕЛЬНЫЕ БЕСЕДЫ:</span>
+            {extraChats.map((chat, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input value={chat.label} onChange={e => updateExtraLabel(i, e.target.value)}
+                  placeholder="Название"
+                  className="w-36 border border-purple-800/40 text-purple-100 text-xs px-3 py-1.5 rounded-lg font-mono-hud focus:outline-none bg-transparent focus:border-violet-600/50 transition-all" />
+                <input value={chat.link || chat.id} onChange={e => updateExtraLink(i, e.target.value)}
+                  placeholder="Ссылка или peer_id" className={inputCls} />
+                {chat.id && chat.link !== chat.id && (
+                  <span className="text-[9px] font-mono-hud text-green-500 whitespace-nowrap">→ {chat.id}</span>
+                )}
+                <button onClick={() => removeExtra(i)}
+                  className="p-1.5 rounded-lg text-red-500/60 hover:text-red-400 hover:bg-red-900/20 transition-all">
+                  <Icon name="X" size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-1">
+          <button onClick={addExtra}
+            className="btn-hud text-[10px] font-hud tracking-wider px-3 py-1.5 bg-purple-900/20 border border-purple-700/30 text-purple-400 rounded-lg hover:bg-purple-800/30 transition-all flex items-center gap-1.5">
+            <Icon name="Plus" size={10} /> ДОБАВИТЬ БЕСЕДУ
+          </button>
+          <button onClick={save}
+            className="btn-hud text-[10px] font-hud tracking-wider px-4 py-1.5 bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 rounded-lg hover:bg-emerald-800/40 transition-all">
+            СОХРАНИТЬ
+          </button>
+          {saved && <span className="text-[10px] font-mono-hud text-emerald-500">✓ Сохранено</span>}
         </div>
       </div>
     </div>

@@ -123,3 +123,11 @@ export async function apiGetSettings(): Promise<SettingsData> {
 export async function apiUpdateSettings(s: Partial<SettingsData>): Promise<void> {
   await req("PATCH", "/settings", s);
 }
+
+export async function apiGetSettings2(): Promise<SettingsData> {
+  return await req("GET", "/settings2");
+}
+
+export async function apiUpdateSettings2(s: Partial<SettingsData>): Promise<void> {
+  await req("PATCH", "/settings2", s);
+}

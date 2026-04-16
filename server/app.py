@@ -21,7 +21,8 @@ VK_CONFIRM_CODE_2 = "3b7d9899"
 VK_SECRET_KEY_2   = os.environ.get("VK_SECRET_KEY_2", "aaQ13axAPQEcczQa")
 
 # ID бесед (peer_id). Устанавливаются через /api/settings
-SETTINGS_FILE = "/opt/hud_data/settings.json"
+SETTINGS_FILE   = "/opt/hud_data/settings.json"
+SETTINGS_FILE_2 = "/opt/hud_data/settings2.json"
 
 def read_settings():
     if not os.path.exists(SETTINGS_FILE):
@@ -36,6 +37,20 @@ def read_settings():
 def write_settings(s):
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
     with open(SETTINGS_FILE, "w") as f:
+        json.dump(s, f)
+
+def read_settings_2():
+    if not os.path.exists(SETTINGS_FILE_2):
+        return {"chat_admin": None, "extra_chats": []}
+    with open(SETTINGS_FILE_2, "r") as f:
+        s = json.load(f)
+    if "extra_chats" not in s:
+        s["extra_chats"] = []
+    return s
+
+def write_settings_2(s):
+    os.makedirs(os.path.dirname(SETTINGS_FILE_2), exist_ok=True)
+    with open(SETTINGS_FILE_2, "w") as f:
         json.dump(s, f)
 
 DEFAULT_DATA = {"users": [
@@ -358,8 +373,7 @@ def notify_vk_status(user_id):
     if not player:
         return jsonify({"ok": False, "reason": "not found"})
 
-    # Отправляем только в беседу — личные сообщения не трогаем
-    broadcast_status(player, status)
+    broadcast_status_all(player, status)
     return jsonify({"ok": True})
 
 # ── Orders ────────────────────────────────────────────────────
@@ -511,9 +525,7 @@ def write_pending(data):
 FACTION_ROLES_SET = {"user", "leader", "deputy"}
 ADMIN_ROLES_SET   = {"admin", "curator", "curator_admin", "curator_faction"}
 
-def get_all_chat_ids():
-    """Собираем все настроенные peer_id бесед."""
-    settings = read_settings()
+def _collect_chat_ids(settings):
     ids = []
     if settings.get("chat_admin"):
         ids.append(settings["chat_admin"])
@@ -523,14 +535,33 @@ def get_all_chat_ids():
             ids.append(int(cid))
     return ids
 
-def broadcast_status(player, cmd, use_token=None):
-    """Отправляем уведомление о статусе во все настроенные беседы."""
+def get_all_chat_ids():
+    return _collect_chat_ids(read_settings())
+
+def get_all_chat_ids_2():
+    return _collect_chat_ids(read_settings_2())
+
+def broadcast_status(player, cmd):
+    """Отправляем уведомление через бот 1 в его беседы."""
     status_text = STATUS_LABELS.get(cmd, cmd)
     lines = get_online_list()
     reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-    token = use_token or VK_TOKEN
     for chat_id in get_all_chat_ids():
-        vk_send(chat_id, reply, KEYBOARD_STATUS, token)
+        vk_send(chat_id, reply, KEYBOARD_STATUS, VK_TOKEN)
+
+def broadcast_status_2(player, cmd):
+    """Отправляем уведомление через бот 2 в его беседы."""
+    status_text = STATUS_LABELS.get(cmd, cmd)
+    lines = get_online_list()
+    reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    for chat_id in get_all_chat_ids_2():
+        vk_send(chat_id, reply, KEYBOARD_STATUS, VK_TOKEN_2)
+
+def broadcast_status_all(player, cmd):
+    """Отправляем уведомление через оба бота в их беседы (при смене с сайта)."""
+    broadcast_status(player, cmd)
+    if VK_TOKEN_2:
+        broadcast_status_2(player, cmd)
 
 
 
@@ -741,6 +772,9 @@ def vk_webhook():
         reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(peer_id, reply, KEYBOARD_STATUS)
 
+    if VK_TOKEN_2:
+        broadcast_status_2(player2, cmd)
+
     return "ok", 200
 
 
@@ -765,17 +799,17 @@ def vk_webhook_2():
 
         bot_vk_id = obj.get("member_id") or 0
         if bot_vk_id < 0 and peer_id:
-            s = read_settings()
+            s = read_settings_2()
             if not s.get("chat_admin"):
                 s["chat_admin"] = peer_id
-                write_settings(s)
-                vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА АДМИНОВ.\npeer_id = {peer_id}", token=tk)
+                write_settings_2(s)
+                vk_send(peer_id, f"✅ Бот 2 подключён к этой беседе.\npeer_id = {peer_id}", token=tk)
             else:
                 extra = s.get("extra_chats", [])
                 extra.append({"id": str(peer_id), "label": f"Беседа {len(extra)+1}"})
                 s["extra_chats"] = extra
-                write_settings(s)
-                vk_send(peer_id, f"✅ Бот подключён к этой беседе.\npeer_id = {peer_id}", token=tk)
+                write_settings_2(s)
+                vk_send(peer_id, f"✅ Бот 2 подключён к этой беседе.\npeer_id = {peer_id}", token=tk)
             return "ok", 200
 
         if vk_id and vk_id > 0:
@@ -868,16 +902,37 @@ def vk_webhook_2():
     db2 = read_db()
     player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
 
-    all_chats = get_all_chat_ids()
-    if all_chats:
-        broadcast_status(player2, cmd, use_token=tk)
+    all_chats_2 = get_all_chat_ids_2()
+    if all_chats_2:
+        broadcast_status_2(player2, cmd)
     else:
         status_text = STATUS_LABELS.get(cmd, cmd)
         lines = get_online_list()
         reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(peer_id, reply, KEYBOARD_STATUS, tk)
 
+    broadcast_status(player2, cmd)
+
     return "ok", 200
+
+
+@app.route("/api/settings2", methods=["GET"])
+def get_settings_2():
+    return jsonify(read_settings_2())
+
+@app.route("/api/settings2", methods=["PATCH"])
+def update_settings_2():
+    body = request.get_json() or {}
+    s = read_settings_2()
+    if "chat_admin" in body:
+        s["chat_admin"] = resolve_peer_id(body["chat_admin"])
+    if "extra_chats" in body and isinstance(body["extra_chats"], list):
+        s["extra_chats"] = [
+            {"id": str(resolve_peer_id(c.get("id", "")) or ""), "label": str(c.get("label", ""))[:64]}
+            for c in body["extra_chats"] if isinstance(c, dict)
+        ][:20]
+    write_settings_2(s)
+    return jsonify({"ok": True, "settings": s})
 
 
 if __name__ == "__main__":
