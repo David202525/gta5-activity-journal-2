@@ -16,18 +16,17 @@ VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
 VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "64bc1464")
 VK_SECRET_KEY   = os.environ.get("VK_SECRET_KEY", "aaQ13axAPQEcczQa")
 
-# ID бесед (peer_id). Фракционная беседа — для игроков/лидеров/замов.
-# Админская беседа — для администраторов и кураторов.
-# Устанавливаются через /api/settings
+# ID бесед (peer_id). Устанавливаются через /api/settings
 SETTINGS_FILE = "/opt/hud_data/settings.json"
 
 def read_settings():
     if not os.path.exists(SETTINGS_FILE):
-        return {"chat_faction": None, "chat_admin": None, "extra_chats": []}
+        return {"chat_admin": None, "extra_chats": []}
     with open(SETTINGS_FILE, "r") as f:
         s = json.load(f)
     if "extra_chats" not in s:
         s["extra_chats"] = []
+    s.pop("chat_faction", None)
     return s
 
 def write_settings(s):
@@ -335,8 +334,6 @@ def resolve_peer_id(value):
 def update_settings():
     body = request.get_json() or {}
     s = read_settings()
-    if "chat_faction" in body:
-        s["chat_faction"] = resolve_peer_id(body["chat_faction"])
     if "chat_admin" in body:
         s["chat_admin"] = resolve_peer_id(body["chat_admin"])
     if "extra_chats" in body and isinstance(body["extra_chats"], list):
@@ -511,33 +508,25 @@ def write_pending(data):
 FACTION_ROLES_SET = {"user", "leader", "deputy"}
 ADMIN_ROLES_SET   = {"admin", "curator", "curator_admin", "curator_faction"}
 
-def broadcast_status(player, cmd):
-    """
-    Отправляем сообщение о статусе в нужную беседу.
-    Фракционные → беседа фракций (chat_faction).
-    Администрация → беседа администрации (chat_admin).
-    Главный куратор и куратор фракций видят фракционную беседу.
-    """
+def get_all_chat_ids():
+    """Собираем все настроенные peer_id бесед."""
     settings = read_settings()
-    chat_faction = settings.get("chat_faction")
-    chat_admin   = settings.get("chat_admin")
-    role = player.get("role", "user")
+    ids = []
+    if settings.get("chat_admin"):
+        ids.append(settings["chat_admin"])
+    for c in settings.get("extra_chats", []):
+        cid = c.get("id", "")
+        if cid and str(cid).isdigit():
+            ids.append(int(cid))
+    return ids
+
+def broadcast_status(player, cmd):
+    """Отправляем уведомление о статусе во все настроенные беседы."""
     status_text = STATUS_LABELS.get(cmd, cmd)
-
-    is_faction = role in FACTION_ROLES_SET
-    is_admin   = role in ADMIN_ROLES_SET
-
-    if is_faction and chat_faction:
-        # Список онлайн — только фракционные
-        lines = get_online_list("leader")
-        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(chat_faction, reply, KEYBOARD_STATUS)
-
-    elif is_admin and chat_admin:
-        # Список онлайн — только администрация
-        lines = get_online_list("curator_admin")
-        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(chat_admin, reply, KEYBOARD_STATUS)
+    lines = get_online_list()
+    reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    for chat_id in get_all_chat_ids():
+        vk_send(chat_id, reply, KEYBOARD_STATUS)
 
 
 
@@ -589,16 +578,10 @@ def vk_webhook():
         peer_id = obj.get("peer_id") or obj.get("chat_id", 0) + 2000000000
         vk_id   = obj.get("user_id") or obj.get("from_id")
 
-        # Если бот сам вступил в беседу — сохраняем peer_id и сообщаем его
         bot_vk_id = obj.get("member_id") or 0
         if bot_vk_id < 0 and peer_id:
-            # Отрицательный member_id = это группа/бот вступил
             s = read_settings()
-            if not s.get("chat_faction"):
-                s["chat_faction"] = peer_id
-                write_settings(s)
-                vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА ФРАКЦИЙ.\npeer_id = {peer_id}\n\nВставь это число в панели сайта в поле «БЕСЕДА ФРАКЦИЙ».")
-            elif not s.get("chat_admin"):
+            if not s.get("chat_admin"):
                 s["chat_admin"] = peer_id
                 write_settings(s)
                 vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА АДМИНОВ.\npeer_id = {peer_id}\n\nВставь это число в панели сайта в поле «БЕСЕДА АДМИНОВ».")
@@ -607,7 +590,7 @@ def vk_webhook():
                 extra.append({"id": str(peer_id), "label": f"Беседа {len(extra)+1}"})
                 s["extra_chats"] = extra
                 write_settings(s)
-                vk_send(peer_id, f"✅ Бот подключён к этой беседе как дополнительная.\npeer_id = {peer_id}")
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе.\npeer_id = {peer_id}\n\nОн добавлен как дополнительная беседа.")
             return "ok", 200
 
         if vk_id and vk_id > 0:
@@ -745,15 +728,8 @@ def vk_webhook():
     db2 = read_db()
     player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
 
-    # Отправляем в нужную беседу (фракционную или админскую)
-    # Если беседа не настроена — отвечаем туда откуда пришло сообщение
-    settings = read_settings()
-    chat_faction = settings.get("chat_faction")
-    chat_admin   = settings.get("chat_admin")
-    role = player2.get("role", "user")
-    has_chat = (role in FACTION_ROLES_SET and chat_faction) or (role in ADMIN_ROLES_SET and chat_admin)
-
-    if has_chat:
+    all_chats = get_all_chat_ids()
+    if all_chats:
         broadcast_status(player2, cmd)
     else:
         status_text = STATUS_LABELS.get(cmd, cmd)

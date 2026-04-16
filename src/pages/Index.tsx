@@ -366,7 +366,7 @@ export default function Index() {
           onDeleteOrg={handleDeleteOrg}
           onRoleChange={handleRoleChange}
           onChangePassword={handleChangePassword}
-          onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); fetchPlayers(); }}
+          onStatusChange={async (id, status) => { await apiSetStatus(id, status).catch(() => {}); apiNotifyVkStatus(id, status).catch(() => {}); fetchPlayers(); }}
           orgTable={orgTable}
           adminTable={adminTable}
           onOrgTableChange={async (t) => { setOrgTable(t); await apiUpdateTable("org", t).catch(() => {}); }}

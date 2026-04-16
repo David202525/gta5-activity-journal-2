@@ -112,7 +112,6 @@ export async function apiUpdateTable(scope: "org" | "admin", table: TableSheet):
 
 // ── Settings ───────────────────────────────────────────────────────────────
 export interface SettingsData {
-  chat_faction: number | null;
   chat_admin: number | null;
   extra_chats: { id: string; label: string }[];
 }

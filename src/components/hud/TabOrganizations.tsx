@@ -142,14 +142,12 @@ function parseVkLink(input: string): string {
 }
 
 function VkChatSettings() {
-  const [chatFaction, setChatFaction] = useState("");
   const [chatAdmin, setChatAdmin]     = useState("");
   const [saved, setSaved]             = useState(false);
   const [extraChats, setExtraChats]   = useState<{ id: string; label: string; link: string }[]>([]);
 
   useEffect(() => {
     apiGetSettings().then(s => {
-      setChatFaction(String(s.chat_faction ?? ""));
       setChatAdmin(String(s.chat_admin ?? ""));
       if (Array.isArray(s.extra_chats)) setExtraChats(s.extra_chats.map(c => ({ ...c, link: c.id })));
     }).catch(() => {});
@@ -162,7 +160,6 @@ function VkChatSettings() {
 
   const save = async () => {
     await apiUpdateSettings({
-      chat_faction: chatFaction ? parseInt(chatFaction) : null,
       chat_admin:   chatAdmin   ? parseInt(chatAdmin)   : null,
       extra_chats:  extraChats.filter(c => c.id.trim()).map(({ label, id }) => ({ label, id })),
     });
@@ -215,15 +212,6 @@ function VkChatSettings() {
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-hud text-cyan-400 w-32">БЕСЕДА ФРАКЦИЙ:</span>
-          <input
-            value={chatFaction}
-            onChange={e => handleLinkInput(e.target.value, setChatFaction)}
-            placeholder="Ссылка или peer_id"
-            className={inputCls}
-          />
-        </div>
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-hud text-violet-400 w-32">БЕСЕДА АДМИНОВ:</span>
           <input
