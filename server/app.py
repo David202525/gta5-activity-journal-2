@@ -772,9 +772,6 @@ def vk_webhook():
         reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(peer_id, reply, KEYBOARD_STATUS)
 
-    if VK_TOKEN_2:
-        broadcast_status_2(player2, cmd)
-
     return "ok", 200
 
 
@@ -910,8 +907,6 @@ def vk_webhook_2():
         lines = get_online_list()
         reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(peer_id, reply, KEYBOARD_STATUS, tk)
-
-    broadcast_status(player2, cmd)
 
     return "ok", 200
 
