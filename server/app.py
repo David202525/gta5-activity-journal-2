@@ -544,8 +544,8 @@ def get_all_chat_ids():
 def get_all_chat_ids_2():
     return _collect_chat_ids(read_settings_2())
 
-def broadcast_status(player, cmd):
-    """Отправляем уведомление через бот 1 — оригинальная логика."""
+def broadcast_status(player, cmd, peer_id=None):
+    """Отправляем уведомление в беседу откуда пришла команда, или в настроенную."""
     settings = read_settings()
     chat_faction = settings.get("chat_faction")
     chat_admin   = settings.get("chat_admin")
@@ -555,15 +555,22 @@ def broadcast_status(player, cmd):
     is_faction = role in FACTION_ROLES_SET
     is_admin   = role in ADMIN_ROLES_SET
 
-    if is_faction and chat_faction:
-        lines = get_online_list("leader")
-        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(chat_faction, reply, KEYBOARD_STATUS, VK_TOKEN)
-
+    # Определяем целевую беседу
+    if peer_id:
+        target = peer_id
+        viewer = "leader" if is_faction else "curator_admin"
+    elif is_faction and chat_faction:
+        target = chat_faction
+        viewer = "leader"
     elif is_admin and chat_admin:
-        lines = get_online_list("curator_admin")
-        reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(chat_admin, reply, KEYBOARD_STATUS, VK_TOKEN)
+        target = chat_admin
+        viewer = "curator_admin"
+    else:
+        return
+
+    lines = get_online_list(viewer)
+    reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    vk_send(target, reply, KEYBOARD_STATUS, VK_TOKEN)
 
 def broadcast_status_2(player, cmd):
     """Отправляем уведомление через бот 2 в его беседы."""
@@ -783,14 +790,7 @@ def vk_webhook():
     db2 = read_db()
     player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
 
-    all_chats = get_all_chat_ids()
-    if all_chats:
-        broadcast_status(player2, cmd)
-    else:
-        status_text = STATUS_LABELS.get(cmd, cmd)
-        lines = get_online_list()
-        reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(peer_id, reply, KEYBOARD_STATUS)
+    broadcast_status(player2, cmd, peer_id=peer_id)
 
     return "ok", 200
 
@@ -919,14 +919,10 @@ def vk_webhook_2():
     db2 = read_db()
     player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
 
-    all_chats_2 = get_all_chat_ids_2()
-    if all_chats_2:
-        broadcast_status_2(player2, cmd)
-    else:
-        status_text = STATUS_LABELS.get(cmd, cmd)
-        lines = get_online_list()
-        reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-        vk_send(peer_id, reply, KEYBOARD_STATUS, tk)
+    status_text = STATUS_LABELS.get(cmd, cmd)
+    lines = get_online_list()
+    reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    vk_send(peer_id, reply, KEYBOARD_STATUS, tk)
 
     return "ok", 200
 
