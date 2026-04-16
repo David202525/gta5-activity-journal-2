@@ -16,6 +16,10 @@ VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
 VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "64bc1464")
 VK_SECRET_KEY   = os.environ.get("VK_SECRET_KEY", "aaQ13axAPQEcczQa")
 
+VK_TOKEN_2        = os.environ.get("VK_BOT_TOKEN_2", "")
+VK_CONFIRM_CODE_2 = "3b7d9899"
+VK_SECRET_KEY_2   = os.environ.get("VK_SECRET_KEY_2", "aaQ13axAPQEcczQa")
+
 # ID бесед (peer_id). Устанавливаются через /api/settings
 SETTINGS_FILE = "/opt/hud_data/settings.json"
 
@@ -400,12 +404,12 @@ STATUS_LABELS = {"online": "в сети 🟢", "afk": "АФК 🟡", "offline": 
 BOT_NAME = "Журнал активности"
 
 
-def vk_send(peer_id, text, keyboard=None):
+def vk_send(peer_id, text, keyboard=None, token=None):
     params = {
         "peer_id": peer_id,
         "message": text,
         "random_id": random.randint(0, 2**31),
-        "access_token": VK_TOKEN,
+        "access_token": token or VK_TOKEN,
         "v": "5.131",
     }
     if keyboard is not None:
@@ -416,13 +420,12 @@ def vk_send(peer_id, text, keyboard=None):
     except Exception as e:
         print(f"VK send error: {e}")
 
-def vk_delete_message(peer_id, msg_id):
-    """Удаляем сообщение пользователя в беседе."""
+def vk_delete_message(peer_id, msg_id, token=None):
     params = {
         "peer_id": peer_id,
         "cmids": msg_id,
         "delete_for_all": 1,
-        "access_token": VK_TOKEN,
+        "access_token": token or VK_TOKEN,
         "v": "5.131",
     }
     url = "https://api.vk.com/method/messages.delete?" + urllib.parse.urlencode(params)
@@ -520,13 +523,14 @@ def get_all_chat_ids():
             ids.append(int(cid))
     return ids
 
-def broadcast_status(player, cmd):
+def broadcast_status(player, cmd, use_token=None):
     """Отправляем уведомление о статусе во все настроенные беседы."""
     status_text = STATUS_LABELS.get(cmd, cmd)
     lines = get_online_list()
     reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+    token = use_token or VK_TOKEN
     for chat_id in get_all_chat_ids():
-        vk_send(chat_id, reply, KEYBOARD_STATUS)
+        vk_send(chat_id, reply, KEYBOARD_STATUS, token)
 
 
 
@@ -736,6 +740,142 @@ def vk_webhook():
         lines = get_online_list()
         reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
         vk_send(peer_id, reply, KEYBOARD_STATUS)
+
+    return "ok", 200
+
+
+@app.route("/api/vk2", methods=["POST"])
+def vk_webhook_2():
+    """Webhook для второго VK-бота. Та же логика, другой токен."""
+    body = request.get_json() or {}
+
+    if body.get("secret") and body.get("secret") != VK_SECRET_KEY_2:
+        return "forbidden", 403
+
+    if body.get("type") == "confirmation":
+        return VK_CONFIRM_CODE_2, 200
+
+    event_type = body.get("type")
+    tk = VK_TOKEN_2
+
+    if event_type in ("chat_invite_user", "chat_invite_user_by_link"):
+        obj     = body.get("object", {})
+        peer_id = obj.get("peer_id") or obj.get("chat_id", 0) + 2000000000
+        vk_id   = obj.get("user_id") or obj.get("from_id")
+
+        bot_vk_id = obj.get("member_id") or 0
+        if bot_vk_id < 0 and peer_id:
+            s = read_settings()
+            if not s.get("chat_admin"):
+                s["chat_admin"] = peer_id
+                write_settings(s)
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе как БЕСЕДА АДМИНОВ.\npeer_id = {peer_id}", token=tk)
+            else:
+                extra = s.get("extra_chats", [])
+                extra.append({"id": str(peer_id), "label": f"Беседа {len(extra)+1}"})
+                s["extra_chats"] = extra
+                write_settings(s)
+                vk_send(peer_id, f"✅ Бот подключён к этой беседе.\npeer_id = {peer_id}", token=tk)
+            return "ok", 200
+
+        if vk_id and vk_id > 0:
+            db = read_db()
+            already = any(u.get("vk_id") == vk_id for u in db["users"])
+            if already:
+                player = next(u for u in db["users"] if u.get("vk_id") == vk_id)
+                vk_send(vk_id, f"👋 С возвращением, {player['username']}!", KEYBOARD_STATUS, tk)
+            else:
+                vk_send(vk_id, f"👋 Привет! Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO, tk)
+        return "ok", 200
+
+    if event_type != "message_new":
+        return "ok", 200
+
+    msg      = body.get("object", {}).get("message", {})
+    msg_id   = msg.get("conversation_message_id") or msg.get("id")
+    raw_text = msg.get("text", "").strip()
+    import re
+    raw_text = re.sub(r'\[club\d+\|[^\]]*\]\s*', '', raw_text).strip()
+    raw_text = re.sub(r'@club\d+\s*', '', raw_text).strip()
+    raw_text = re.sub(r'\[id\d+\|[^\]]*\]\s*', '', raw_text).strip()
+    text     = raw_text.lower().strip()
+    peer_id  = msg.get("peer_id")
+    vk_id    = msg.get("from_id")
+
+    if text in ("!peer_id", "peer_id", "!пиринг", "!id"):
+        vk_send(peer_id, f"📌 peer_id этой беседы: {peer_id}", token=tk)
+        return "ok", 200
+
+    if text in ("!кто", "кто", "!who", "начать", "start", "привязать"):
+        db = read_db()
+        already = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
+        if already:
+            vk_send(peer_id, f"✅ [id{vk_id}|{already['username']}] уже привязан.", KEYBOARD_STATUS, tk)
+            return "ok", 200
+        pending = read_pending()
+        pending[str(vk_id)] = {"peer_id": peer_id}
+        write_pending(pending)
+        vk_send(peer_id, f"[id{vk_id}|Привет!] ✍️ Напиши свой ник с сайта:", None, tk)
+        return "ok", 200
+
+    pending = read_pending()
+    if str(vk_id) in pending:
+        db = read_db()
+        saved = pending[str(vk_id)]
+        reply_peer = saved["peer_id"] if isinstance(saved, dict) else peer_id
+        target = next((u for u in db["users"] if u["username"].lower() == raw_text.lower()), None)
+        if not target:
+            vk_send(reply_peer, f"[id{vk_id}|❌] Ник «{raw_text}» не найден.", None, tk)
+            return "ok", 200
+        if target.get("vk_id"):
+            vk_send(reply_peer, f"[id{vk_id}|❌] Аккаунт {target['username']} уже привязан.", KEYBOARD_WHO, tk)
+            del pending[str(vk_id)]
+            write_pending(pending)
+            return "ok", 200
+        target["vk_id"] = vk_id
+        _, vk_photo = vk_get_user_info(vk_id)
+        if vk_photo:
+            target["vk_photo"] = vk_photo
+        write_db(db)
+        del pending[str(vk_id)]
+        write_pending(pending)
+        vk_send(reply_peer, f"✅ [id{vk_id}|{target['username']}] привязан!", KEYBOARD_STATUS, tk)
+        return "ok", 200
+
+    cmd = None
+    if text in ("!онлайн", "онлайн", "!online"):   cmd = "online"
+    elif text in ("!афк", "афк", "!afk"):           cmd = "afk"
+    elif text in ("!вышел", "вышел", "!offline"):   cmd = "offline"
+
+    if cmd is None:
+        db = read_db()
+        linked = any(u.get("vk_id") == vk_id for u in db["users"])
+        if linked:
+            vk_delete_message(peer_id, msg_id, tk)
+            vk_send(peer_id, "Используй кнопки для смены статуса:", KEYBOARD_STATUS, tk)
+        else:
+            vk_delete_message(peer_id, msg_id, tk)
+            vk_send(peer_id, "👋 Нажми кнопку ниже чтобы привязать аккаунт:", KEYBOARD_WHO, tk)
+        return "ok", 200
+
+    db = read_db()
+    player = next((u for u in db["users"] if u.get("vk_id") == vk_id), None)
+    if not player:
+        vk_send(peer_id, f"[id{vk_id}|❌] Аккаунт не привязан. Напиши !кто", KEYBOARD_WHO, tk)
+        return "ok", 200
+
+    do_set_status(player["id"], cmd)
+    db2 = read_db()
+    player2 = next((u for u in db2["users"] if u["id"] == player["id"]), player)
+
+    all_chats = get_all_chat_ids()
+    if all_chats:
+        broadcast_status(player2, cmd, use_token=tk)
+    else:
+        status_text = STATUS_LABELS.get(cmd, cmd)
+        lines = get_online_list()
+        reply = f"⚠️ {player2['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
+        vk_send(peer_id, reply, KEYBOARD_STATUS, tk)
 
     return "ok", 200
 
