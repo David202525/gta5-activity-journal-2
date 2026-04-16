@@ -13,7 +13,7 @@ ORGS_FILE    = "/opt/hud_data/orgs.json"
 TABLES_FILE  = "/opt/hud_data/tables.json"
 
 VK_TOKEN        = os.environ.get("VK_BOT_TOKEN", "")
-VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "64bc1464")
+VK_CONFIRM_CODE = os.environ.get("VK_CONFIRM_CODE", "c928695b")
 VK_SECRET_KEY   = os.environ.get("VK_SECRET_KEY", "aaQ13axAPQEcczQa")
 
 VK_TOKEN_2        = os.environ.get("VK_BOT_TOKEN_2", "")
