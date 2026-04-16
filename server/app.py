@@ -231,7 +231,7 @@ def edit_user(user_id):
     body = request.get_json() or {}
     allowed = {"username","password","rank","title","role","level","xp","xpMax",
                "reputation","warnings","penalties","status","onlineToday",
-               "onlineWeek","weekActivity","vk_id","vk_photo","orgId"}
+               "onlineWeek","weekActivity","vk_id","vk_photo","orgId","vk_peer_id"}
     db = read_db()
     for u in db["users"]:
         if u["id"] == user_id:
@@ -245,6 +245,15 @@ def edit_user(user_id):
 @app.route("/api/users/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id):
     db = read_db()
+    # Уведомляем игрока в ВК об увольнении перед удалением
+    player = next((u for u in db["users"] if u["id"] == user_id), None)
+    if player and player.get("vk_id") and player.get("vk_peer_id"):
+        settings2 = read_settings_2()
+        chats2 = _collect_chat_ids(settings2)
+        token = VK_TOKEN_2 if (player["vk_peer_id"] in chats2) else VK_TOKEN
+        vk_send(player["vk_peer_id"],
+            f"🚫 [{player['username']}] удалён из Журнала активности.\nДля повторной привязки напиши !кто в новой беседе.",
+            None, token)
     db["users"] = [u for u in db["users"] if u["id"] != user_id]
     write_db(db)
     return jsonify({"ok": True})
@@ -545,32 +554,22 @@ def get_all_chat_ids_2():
     return _collect_chat_ids(read_settings_2())
 
 def broadcast_status(player, cmd, peer_id=None):
-    """Отправляем уведомление в беседу откуда пришла команда, или в настроенную."""
-    settings = read_settings()
-    chat_faction = settings.get("chat_faction")
-    chat_admin   = settings.get("chat_admin")
-    role = player.get("role", "user")
+    """Отправляем уведомление в беседу привязки игрока."""
     status_text = STATUS_LABELS.get(cmd, cmd)
 
-    is_faction = role in FACTION_ROLES_SET
-    is_admin   = role in ADMIN_ROLES_SET
-
-    # Определяем целевую беседу
-    if peer_id:
-        target = peer_id
-        viewer = "leader" if is_faction else "curator_admin"
-    elif is_faction and chat_faction:
-        target = chat_faction
-        viewer = "leader"
-    elif is_admin and chat_admin:
-        target = chat_admin
-        viewer = "curator_admin"
-    else:
+    # Приоритет: беседа из профиля игрока, затем peer_id из запроса
+    target = player.get("vk_peer_id") or peer_id
+    if not target:
         return
 
-    lines = get_online_list(viewer)
+    # Определяем токен по peer_id — бот 1 или бот 2
+    settings2 = read_settings_2()
+    chats2 = _collect_chat_ids(settings2)
+    token = VK_TOKEN_2 if (target in chats2) else VK_TOKEN
+
+    lines = get_online_list()
     reply = f"⚠️ {player['username']} {status_text}.\nНа сервере:\n" + ("\n".join(lines) if lines else "никого нет")
-    vk_send(target, reply, KEYBOARD_STATUS, VK_TOKEN)
+    vk_send(target, reply, KEYBOARD_STATUS, token)
 
 def broadcast_status_2(player, cmd):
     """Отправляем уведомление через бот 2 в его беседы."""
@@ -581,10 +580,8 @@ def broadcast_status_2(player, cmd):
         vk_send(chat_id, reply, KEYBOARD_STATUS, VK_TOKEN_2)
 
 def broadcast_status_all(player, cmd):
-    """Отправляем уведомление через оба бота в их беседы (при смене с сайта)."""
+    """При смене статуса с сайта — шлём в беседу привязки игрока."""
     broadcast_status(player, cmd)
-    if VK_TOKEN_2:
-        broadcast_status_2(player, cmd)
 
 
 
@@ -735,8 +732,9 @@ def vk_webhook():
             write_pending(pending)
             return "ok", 200
 
-        # Привязываем
+        # Привязываем — сохраняем vk_id и беседу привязки
         target["vk_id"] = vk_id
+        target["vk_peer_id"] = reply_peer
         _, vk_photo = vk_get_user_info(vk_id)
         if vk_photo:
             target["vk_photo"] = vk_photo
@@ -884,6 +882,7 @@ def vk_webhook_2():
             write_pending(pending)
             return "ok", 200
         target["vk_id"] = vk_id
+        target["vk_peer_id"] = reply_peer
         _, vk_photo = vk_get_user_info(vk_id)
         if vk_photo:
             target["vk_photo"] = vk_photo
