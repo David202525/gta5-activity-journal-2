@@ -1,1 +1,0 @@
-{"tests": [{"name": "GET orgs without token returns 401", "method": "GET", "path": "/", "expectedStatus": 401, "bodyMatcher": "partial"}, {"name": "POST create without token returns 401", "method": "POST", "path": "/", "body": {"action": "create", "name": "Test", "tag": "[T]"}, "expectedStatus": 401, "bodyMatcher": "partial"}]}

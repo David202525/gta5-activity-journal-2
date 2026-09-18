@@ -1,3 +1,0 @@
-ALTER TABLE t_p32572441_gta5_activity_journa.users ADD COLUMN IF NOT EXISTS week_activity INTEGER[] DEFAULT ARRAY[0,0,0,0,0,0,0];
-ALTER TABLE t_p32572441_gta5_activity_journa.users ADD COLUMN IF NOT EXISTS penalties JSONB NOT NULL DEFAULT '[]';
-ALTER TABLE t_p32572441_gta5_activity_journa.users ADD COLUMN IF NOT EXISTS curator_type VARCHAR(32) DEFAULT NULL;
